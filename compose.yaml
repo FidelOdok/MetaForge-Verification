@@ -1,0 +1,36 @@
+# Local development only: loopback ingress and an explicitly local single-tenant identity.
+services:
+  api:
+    build: .
+    ports: ["127.0.0.1:8000:8000"]
+    environment: &env
+      VERIFICATION_DATABASE_URL: postgresql+psycopg://verification:local-only@postgres/verification
+      VERIFICATION_ARTIFACT_ROOT: /app/data/artifacts
+      VERIFICATION_AUTH_MODE: local
+    volumes: ["artifacts:/app/data/artifacts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+  worker:
+    build: .
+    command: ["metaforge-verification", "worker"]
+    environment: *env
+    volumes: ["artifacts:/app/data/artifacts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.6
+    environment:
+      POSTGRES_USER: verification
+      POSTGRES_PASSWORD: local-only
+      POSTGRES_DB: verification
+    volumes: ["postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U verification"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+volumes:
+  artifacts:
+  postgres:

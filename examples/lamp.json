@@ -1,0 +1,217 @@
+{
+  "schema_version": "1.0",
+  "profile_id": "smart-lamp-analytical-v1",
+  "approval_ref": "fixture:approved-lamp-requirements-v1",
+  "twin": {
+    "twin_id": "lamp",
+    "revision_id": "r1",
+    "artifacts": [],
+    "facts": {
+      "supply_power": {
+        "quantity": {
+          "value": 10,
+          "unit": "W"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      },
+      "load_power": {
+        "quantity": {
+          "value": 12,
+          "unit": "W"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      },
+      "ambient_temperature": {
+        "quantity": {
+          "value": 25,
+          "unit": "degC"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      },
+      "dissipated_power": {
+        "quantity": {
+          "value": 2,
+          "unit": "W"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      },
+      "thermal_resistance": {
+        "quantity": {
+          "value": 5,
+          "unit": "kelvin / watt"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      },
+      "cavity_x": {
+        "quantity": {
+          "value": 52,
+          "unit": "mm"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      },
+      "cavity_y": {
+        "quantity": {
+          "value": 32,
+          "unit": "mm"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      },
+      "cavity_z": {
+        "quantity": {
+          "value": 12,
+          "unit": "mm"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      },
+      "pcb_x": {
+        "quantity": {
+          "value": 50,
+          "unit": "mm"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      },
+      "pcb_y": {
+        "quantity": {
+          "value": 30,
+          "unit": "mm"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      },
+      "pcb_z": {
+        "quantity": {
+          "value": 10,
+          "unit": "mm"
+        },
+        "source_ref": "fixture:independent-lamp-baseline-v1",
+        "provenance": "declared"
+      }
+    }
+  },
+  "requirements": [
+    {
+      "id": "POWER",
+      "description": "POWER",
+      "rule_id": "device.power_budget",
+      "required": true,
+      "required_fidelity": "F2",
+      "criterion": {
+        "operator": "<=",
+        "threshold": {
+          "value": 0.8,
+          "unit": "dimensionless"
+        }
+      }
+    },
+    {
+      "id": "THERMAL",
+      "description": "THERMAL",
+      "rule_id": "device.thermal_estimate",
+      "required": true,
+      "required_fidelity": "F2",
+      "criterion": {
+        "operator": "<=",
+        "threshold": {
+          "value": 45,
+          "unit": "degC"
+        }
+      }
+    },
+    {
+      "id": "FIT",
+      "description": "FIT",
+      "rule_id": "geometry.declared_box_fit",
+      "required": true,
+      "required_fidelity": "F2",
+      "criterion": {
+        "operator": ">=",
+        "threshold": {
+          "value": 1,
+          "unit": "mm"
+        }
+      }
+    },
+    {
+      "id": "BEHAVIOR",
+      "description": "BEHAVIOR",
+      "rule_id": "scenario.device_behavior",
+      "required": true,
+      "required_fidelity": "F2",
+      "criterion": {
+        "operator": "==",
+        "threshold": {
+          "value": 0,
+          "unit": "dimensionless"
+        }
+      }
+    },
+    {
+      "id": "VISUAL",
+      "description": "VISUAL",
+      "rule_id": "visual.pixel_difference",
+      "required": true,
+      "required_fidelity": "F1",
+      "criterion": {
+        "operator": "<=",
+        "threshold": {
+          "value": 0,
+          "unit": "dimensionless"
+        }
+      }
+    }
+  ],
+  "behavior_model": {
+    "model_version": "lamp-behavior-1",
+    "offline_policy": "hold",
+    "boot_output": 0,
+    "sensor_fault_output": 0
+  },
+  "scenarios": [
+    {
+      "id": "operation-and-recovery",
+      "requirement_id": "BEHAVIOR",
+      "steps": [
+        {
+          "event": "on",
+          "expected_output": 100,
+          "expected_connected": true
+        },
+        {
+          "event": "dim",
+          "value": 40,
+          "expected_output": 40,
+          "expected_connected": true
+        },
+        {
+          "event": "disconnect",
+          "expected_output": 40,
+          "expected_connected": false
+        },
+        {
+          "event": "reconnect",
+          "expected_output": 40,
+          "expected_connected": true
+        },
+        {
+          "event": "sensor_fault",
+          "expected_output": 0,
+          "expected_connected": true
+        },
+        {
+          "event": "power_cycle",
+          "expected_output": 0,
+          "expected_connected": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+data/
+dist/
+build/
+.env
+node_modules/
+visual-capture/output/
