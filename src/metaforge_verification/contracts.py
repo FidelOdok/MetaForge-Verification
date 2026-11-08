@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Literal
 
@@ -45,6 +46,8 @@ class Quantity(Contract):
             "percent",
             "V",
             "A",
+            "mm^3",
+            "ohm",
         }:
             raise ValueError("Unit is not supported by the v1 analytical profile")
         return value
@@ -119,15 +122,115 @@ class VisualComparison(Contract):
     approval_ref: str = Field(min_length=1, max_length=500)
 
 
+class CADComponent(Contract):
+    id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
+    step: ArtifactRef
+    translation_mm: tuple[float, float, float] = (0, 0, 0)
+    rotation_deg: tuple[float, float, float] = (0, 0, 0)
+
+    @field_validator("translation_mm", "rotation_deg")
+    @classmethod
+    def bounded_transform(cls, values):
+        if any(abs(v) > 100_000 for v in values):
+            raise ValueError("Transform exceeds supported envelope")
+        return values
+
+
+class CADAssembly(Contract):
+    components: list[CADComponent] = Field(min_length=2, max_length=2)
+    tolerance_mm: float = Field(default=0.001, gt=0, le=0.1)
+    enclosure_id: str | None = Field(default=None, max_length=64)
+
+    @model_validator(mode="after")
+    def unique_components(self):
+        if len({c.id for c in self.components}) != len(self.components):
+            raise ValueError("CAD component IDs must be unique")
+        if self.enclosure_id is not None and self.enclosure_id not in {
+            c.id for c in self.components
+        }:
+            raise ValueError("Enclosure ID must resolve to a component")
+        return self
+
+
+class CircuitElement(Contract):
+    id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,31}$")
+    kind: Literal["resistor", "voltage_source"]
+    positive: str = Field(pattern=r"^(0|[a-z][a-z0-9_]{0,31})$")
+    negative: str = Field(pattern=r"^(0|[a-z][a-z0-9_]{0,31})$")
+    value: Quantity
+    source_ref: str = Field(min_length=1, max_length=500)
+
+
+class DCCircuit(Contract):
+    model_version: Literal["resistive-dc-1"] = "resistive-dc-1"
+    elements: list[CircuitElement] = Field(min_length=2, max_length=100)
+    output_node: str = Field(pattern=r"^[a-z][a-z0-9_]{0,31}$")
+
+    @model_validator(mode="after")
+    def validate_circuit(self):
+        if len({e.id.lower() for e in self.elements}) != len(self.elements):
+            raise ValueError("Circuit element IDs must be unique ignoring case")
+        nodes = {n for e in self.elements for n in (e.positive, e.negative)}
+        if "0" not in nodes or self.output_node not in nodes:
+            raise ValueError("Circuit requires ground and a connected output node")
+        if not any(e.kind == "voltage_source" for e in self.elements):
+            raise ValueError("Circuit requires an independent voltage source")
+        return self
+
+
+class ThermalBounds(Contract):
+    ambient_max: Fact
+    dissipation_max: Fact
+    resistance_max: Fact
+
+
+class VisualRegion(Contract):
+    id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
+    # Integer pixel coordinates [left, top, right, bottom] in the controlled capture.
+    box: tuple[int, int, int, int]
+    visible: bool
+    component_id: str | None = Field(default=None, max_length=100)
+
+    @model_validator(mode="after")
+    def valid_box(self):
+        x0, y0, x1, y1 = self.box
+        if not (0 <= x0 < x1 <= 4096 and 0 <= y0 < y1 <= 4096):
+            raise ValueError("Invalid pixel region")
+        return self
+
+
+class VisualFeatures(Contract):
+    regions: list[VisualRegion] = Field(min_length=1, max_length=20)
+    background_rgb: tuple[int, int, int] = (255, 255, 255)
+    background_tolerance: int = Field(default=20, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def valid_colors(self):
+        if any(c < 0 or c > 255 for c in self.background_rgb):
+            raise ValueError("Invalid background color")
+        if len({r.id for r in self.regions}) != len(self.regions):
+            raise ValueError("Visual region IDs must be unique")
+        return self
+
+
 class VerificationRequest(Contract):
     schema_version: Literal["1.0"] = "1.0"
-    profile_id: Literal["smart-lamp-analytical-v1"] = "smart-lamp-analytical-v1"
+    profile_id: Literal["smart-lamp-analytical-v1", "smart-lamp-digital-v1"] = (
+        "smart-lamp-analytical-v1"
+    )
     approval_ref: str = Field(min_length=1, max_length=500)
+    lifecycle_stage: Literal["concept", "EVT", "DVT", "PVT"] = "concept"
     twin: Twin
     requirements: list[Requirement] = Field(min_length=1, max_length=100)
     behavior_model: DeviceModel | None = None
     scenarios: list[Scenario] = Field(default_factory=list, max_length=20)
     visual: VisualComparison | None = None
+    cad: CADAssembly | None = None
+    circuit: DCCircuit | None = None
+    thermal_bounds: ThermalBounds | None = None
+    visual_features: VisualFeatures | None = None
+    baseline_id: str | None = Field(default=None, pattern=r"^[a-f0-9-]{36}$")
+    previous_verification_id: str | None = Field(default=None, pattern=r"^[a-f0-9-]{36}$")
 
     @model_validator(mode="after")
     def unique_references(self):
@@ -142,6 +245,119 @@ class VerificationRequest(Contract):
         return self
 
 
+class BaselineCreate(Contract):
+    verification: VerificationRequest
+    rationale: str = Field(min_length=1, max_length=2000)
+
+
+class ReviewCreate(Contract):
+    requirement_id: str = Field(min_length=1, max_length=100)
+    decision: Literal["accepted", "rejected", "needs_evidence"]
+    rationale: str = Field(min_length=1, max_length=2000)
+    evidence_refs: list[ArtifactRef] = Field(default_factory=list, max_length=10)
+
+
+class UploadCreate(Contract):
+    size_bytes: int = Field(gt=0, le=10 * 1024 * 1024)
+    sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+
+
+class RequirementSetCreate(Contract):
+    name: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    revision_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    profile_id: Literal["smart-lamp-analytical-v1", "smart-lamp-digital-v1"]
+    requirements: list[Requirement] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def unique_requirements(self):
+        if len({r.id for r in self.requirements}) != len(self.requirements):
+            raise ValueError("Requirement IDs must be unique")
+        return self
+
+
+class ScenarioSuiteCreate(Contract):
+    name: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    revision_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    scenarios: list[Scenario] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def unique_scenarios(self):
+        if len({s.id for s in self.scenarios}) != len(self.scenarios):
+            raise ValueError("Scenario IDs must be unique")
+        return self
+
+
+class VerificationByReference(Contract):
+    twin_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    twin_revision_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    requirements_revision_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
+    scenario_suite_revision_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
+    profile_revision_id: Literal["smart-lamp-analytical-v1", "smart-lamp-digital-v1"]
+    baseline_id: str | None = Field(default=None, pattern=r"^[a-f0-9-]{36}$")
+    accept_gaps: bool = False
+
+
+class PhysicalEvidenceCreate(Contract):
+    artifact: ArtifactRef
+    configuration_ref: str = Field(min_length=1, max_length=500)
+    origin: str = Field(min_length=1, max_length=500)
+    captured_at: str = Field(min_length=1, max_length=100)
+    instrument_id: str | None = Field(default=None, max_length=200)
+    calibration_ref: str | None = Field(default=None, max_length=500)
+    notes: str = Field(default="", max_length=2000)
+
+    @field_validator("captured_at")
+    @classmethod
+    def aware_timestamp(cls, value):
+        from datetime import datetime
+
+        result = datetime.fromisoformat(value)
+        if result.tzinfo is None:
+            raise ValueError("Capture timestamp must include timezone")
+        return value
+
+
+def baseline_snapshot(request: VerificationRequest):
+    visual = request.visual
+    return {
+        "profile_id": request.profile_id,
+        "lifecycle_stage": request.lifecycle_stage,
+        "requirements": [r.model_dump(mode="json") for r in request.requirements],
+        "scenarios": [s.model_dump(mode="json") for s in request.scenarios],
+        "thermal_bounds": request.thermal_bounds.model_dump(mode="json")
+        if request.thermal_bounds
+        else None,
+        "visual_features": request.visual_features.model_dump(mode="json")
+        if request.visual_features
+        else None,
+        "visual_reference": {
+            "reference": visual.reference.model_dump(mode="json"),
+            "context": visual.reference_context_sha256,
+            "approval_ref": visual.approval_ref,
+        }
+        if visual
+        else None,
+    }
+
+
+def revision_snapshot(request: VerificationRequest):
+    return {
+        "twin": request.twin.model_dump(mode="json"),
+        "cad": request.cad.model_dump(mode="json") if request.cad else None,
+        "circuit": request.circuit.model_dump(mode="json") if request.circuit else None,
+        "behavior_model": request.behavior_model.model_dump(mode="json")
+        if request.behavior_model
+        else None,
+        "visual_candidate": {
+            "candidate": request.visual.candidate.model_dump(mode="json"),
+            "context": request.visual.candidate_context_sha256,
+            "revision": request.visual.candidate_revision_id,
+        }
+        if request.visual
+        else None,
+    }
+
+
 class Evidence(Contract):
     evidence_id: str
     method: str
@@ -151,7 +367,8 @@ class Evidence(Contract):
     source_refs: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     details: dict = Field(default_factory=dict)
-    tool_version: str = "metaforge-verification/0.1.0"
+    tool_version: str = "metaforge-verification/0.2.0"
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class Finding(Contract):
@@ -164,6 +381,9 @@ class Finding(Contract):
     achieved_fidelity: str | None = None
     measurement: Quantity | None = None
     evidence_ids: list[str] = Field(default_factory=list)
+    criterion: Criterion | None = None
+    component_ids: list[str] = Field(default_factory=list)
+    suggestion: str | None = None
 
 
 class Report(Contract):
@@ -178,6 +398,8 @@ class Report(Contract):
     evidence: list[Evidence]
     coverage: dict
     limitations: list[str]
+    lifecycle_stage: str = "concept"
+    approval: dict = Field(default_factory=dict)
 
 
 def fingerprint(value: BaseModel | dict) -> str:

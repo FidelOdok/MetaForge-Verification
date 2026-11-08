@@ -66,6 +66,10 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: visual-capture/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-dev.lock && pip install --no-deps -e .
       - run: npm ci --ignore-scripts
         working-directory: visual-capture
       - run: npx playwright install --with-deps chromium
@@ -75,13 +79,16 @@ jobs:
       - run: python scripts/make_capture_fixture.py /tmp/fixture.glb
       - run: node visual-capture/capture.mjs /tmp/fixture.glb /tmp/captures r1
       - run: python scripts/check_capture.py /tmp/captures
+      - run: node visual-capture/review.test.mjs
+        env:
+          VERIFICATION_UI_CAPTURE_DIR: /tmp/captures/ui
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: controlled-capture
           path: /tmp/captures
   package:
-    needs: [lint, tests, visual]
+    needs: [lint, tests, visual, engineering]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -96,7 +103,38 @@ jobs:
           context: .
           push: false
           tags: metaforge-verification:ci
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.engineering
+          push: false
+          load: true
+          tags: metaforge-verification:engineering-ci
+      - run: >-
+          docker run --rm --network none --read-only --tmpfs /tmp:rw,exec,size=512m
+          --memory 4g --cpus 2 --pids-limit 128
+          -v "$PWD:/qualification:ro" -w /qualification
+          metaforge-verification:engineering-ci python examples/digital_demo.py
       - uses: actions/upload-artifact@v4
         with:
           name: python-distributions
           path: dist/
+  engineering:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-engineering.lock
+      - run: sudo apt-get update && sudo apt-get install -y ngspice libseccomp2
+      - run: pip install -r requirements-engineering.lock
+      - run: pip install --no-deps -e .
+      - run: pytest -q tests/test_engineering.py tests/test_governance.py tests/test_resources.py tests/test_delivery.py --junitxml=engineering-results.xml
+      - run: python examples/digital_demo.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: engineering-results
+          path: engineering-results.xml

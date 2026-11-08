@@ -22,6 +22,174 @@
         "title": "ArtifactRef",
         "type": "object"
       },
+      "BaselineCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "rationale": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/VerificationRequest"
+          }
+        },
+        "required": [
+          "verification",
+          "rationale"
+        ],
+        "title": "BaselineCreate",
+        "type": "object"
+      },
+      "CADAssembly": {
+        "additionalProperties": false,
+        "properties": {
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/CADComponent"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Components",
+            "type": "array"
+          },
+          "enclosure_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enclosure Id"
+          },
+          "tolerance_mm": {
+            "default": 0.001,
+            "exclusiveMinimum": 0.0,
+            "maximum": 0.1,
+            "title": "Tolerance Mm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "components"
+        ],
+        "title": "CADAssembly",
+        "type": "object"
+      },
+      "CADComponent": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "rotation_deg": {
+            "default": [
+              0,
+              0,
+              0
+            ],
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Rotation Deg",
+            "type": "array"
+          },
+          "step": {
+            "$ref": "#/components/schemas/ArtifactRef"
+          },
+          "translation_mm": {
+            "default": [
+              0,
+              0,
+              0
+            ],
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Translation Mm",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "step"
+        ],
+        "title": "CADComponent",
+        "type": "object"
+      },
+      "CircuitElement": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "resistor",
+              "voltage_source"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "negative": {
+            "pattern": "^(0|[a-z][a-z0-9_]{0,31})$",
+            "title": "Negative",
+            "type": "string"
+          },
+          "positive": {
+            "pattern": "^(0|[a-z][a-z0-9_]{0,31})$",
+            "title": "Positive",
+            "type": "string"
+          },
+          "source_ref": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source Ref",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/Quantity"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "positive",
+          "negative",
+          "value",
+          "source_ref"
+        ],
+        "title": "CircuitElement",
+        "type": "object"
+      },
       "Criterion": {
         "additionalProperties": false,
         "properties": {
@@ -43,6 +211,37 @@
           "threshold"
         ],
         "title": "Criterion",
+        "type": "object"
+      },
+      "DCCircuit": {
+        "additionalProperties": false,
+        "properties": {
+          "elements": {
+            "items": {
+              "$ref": "#/components/schemas/CircuitElement"
+            },
+            "maxItems": 100,
+            "minItems": 2,
+            "title": "Elements",
+            "type": "array"
+          },
+          "model_version": {
+            "const": "resistive-dc-1",
+            "default": "resistive-dc-1",
+            "title": "Model Version",
+            "type": "string"
+          },
+          "output_node": {
+            "pattern": "^[a-z][a-z0-9_]{0,31}$",
+            "title": "Output Node",
+            "type": "string"
+          }
+        },
+        "required": [
+          "elements",
+          "output_node"
+        ],
+        "title": "DCCircuit",
         "type": "object"
       },
       "DeviceModel": {
@@ -124,6 +323,70 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "PhysicalEvidenceCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/ArtifactRef"
+          },
+          "calibration_ref": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calibration Ref"
+          },
+          "captured_at": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Captured At",
+            "type": "string"
+          },
+          "configuration_ref": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Configuration Ref",
+            "type": "string"
+          },
+          "instrument_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument Id"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "origin": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Origin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact",
+          "configuration_ref",
+          "origin",
+          "captured_at"
+        ],
+        "title": "PhysicalEvidenceCreate",
+        "type": "object"
+      },
       "Quantity": {
         "additionalProperties": false,
         "properties": {
@@ -196,6 +459,87 @@
         "title": "Requirement",
         "type": "object"
       },
+      "RequirementSetCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "profile_id": {
+            "enum": [
+              "smart-lamp-analytical-v1",
+              "smart-lamp-digital-v1"
+            ],
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/Requirement"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Requirements",
+            "type": "array"
+          },
+          "revision_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "revision_id",
+          "profile_id",
+          "requirements"
+        ],
+        "title": "RequirementSetCreate",
+        "type": "object"
+      },
+      "ReviewCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "accepted",
+              "rejected",
+              "needs_evidence"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactRef"
+            },
+            "maxItems": 10,
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "rationale": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "requirement_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Requirement Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requirement_id",
+          "decision",
+          "rationale"
+        ],
+        "title": "ReviewCreate",
+        "type": "object"
+      },
       "Scenario": {
         "additionalProperties": false,
         "properties": {
@@ -226,6 +570,35 @@
           "steps"
         ],
         "title": "Scenario",
+        "type": "object"
+      },
+      "ScenarioSuiteCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "revision_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/Scenario"
+            },
+            "maxItems": 20,
+            "title": "Scenarios",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "revision_id"
+        ],
+        "title": "ScenarioSuiteCreate",
         "type": "object"
       },
       "Step": {
@@ -276,6 +649,27 @@
         "title": "Step",
         "type": "object"
       },
+      "ThermalBounds": {
+        "additionalProperties": false,
+        "properties": {
+          "ambient_max": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "dissipation_max": {
+            "$ref": "#/components/schemas/Fact"
+          },
+          "resistance_max": {
+            "$ref": "#/components/schemas/Fact"
+          }
+        },
+        "required": [
+          "ambient_max",
+          "dissipation_max",
+          "resistance_max"
+        ],
+        "title": "ThermalBounds",
+        "type": "object"
+      },
       "Twin": {
         "additionalProperties": false,
         "properties": {
@@ -311,6 +705,34 @@
           "revision_id"
         ],
         "title": "Twin",
+        "type": "object"
+      },
+      "UploadCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 10485760.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "size_bytes"
+        ],
+        "title": "UploadCreate",
         "type": "object"
       },
       "ValidationError": {
@@ -353,6 +775,65 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VerificationByReference": {
+        "additionalProperties": false,
+        "properties": {
+          "accept_gaps": {
+            "default": false,
+            "title": "Accept Gaps",
+            "type": "boolean"
+          },
+          "baseline_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9-]{36}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Id"
+          },
+          "profile_revision_id": {
+            "enum": [
+              "smart-lamp-analytical-v1",
+              "smart-lamp-digital-v1"
+            ],
+            "title": "Profile Revision Id",
+            "type": "string"
+          },
+          "requirements_revision_id": {
+            "pattern": "^[a-f0-9-]{36}$",
+            "title": "Requirements Revision Id",
+            "type": "string"
+          },
+          "scenario_suite_revision_id": {
+            "pattern": "^[a-f0-9-]{36}$",
+            "title": "Scenario Suite Revision Id",
+            "type": "string"
+          },
+          "twin_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Twin Id",
+            "type": "string"
+          },
+          "twin_revision_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Twin Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "twin_id",
+          "twin_revision_id",
+          "requirements_revision_id",
+          "scenario_suite_revision_id",
+          "profile_revision_id"
+        ],
+        "title": "VerificationByReference",
+        "type": "object"
+      },
       "VerificationRequest": {
         "additionalProperties": false,
         "properties": {
@@ -361,6 +842,18 @@
             "minLength": 1,
             "title": "Approval Ref",
             "type": "string"
+          },
+          "baseline_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9-]{36}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Id"
           },
           "behavior_model": {
             "anyOf": [
@@ -372,9 +865,55 @@
               }
             ]
           },
+          "cad": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CADAssembly"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "circuit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DCCircuit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lifecycle_stage": {
+            "default": "concept",
+            "enum": [
+              "concept",
+              "EVT",
+              "DVT",
+              "PVT"
+            ],
+            "title": "Lifecycle Stage",
+            "type": "string"
+          },
+          "previous_verification_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9-]{36}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Verification Id"
+          },
           "profile_id": {
-            "const": "smart-lamp-analytical-v1",
             "default": "smart-lamp-analytical-v1",
+            "enum": [
+              "smart-lamp-analytical-v1",
+              "smart-lamp-digital-v1"
+            ],
             "title": "Profile Id",
             "type": "string"
           },
@@ -401,6 +940,16 @@
             "title": "Schema Version",
             "type": "string"
           },
+          "thermal_bounds": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ThermalBounds"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "twin": {
             "$ref": "#/components/schemas/Twin"
           },
@@ -408,6 +957,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/VisualComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visual_features": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisualFeatures"
               },
               {
                 "type": "null"
@@ -463,12 +1022,113 @@
         ],
         "title": "VisualComparison",
         "type": "object"
+      },
+      "VisualFeatures": {
+        "additionalProperties": false,
+        "properties": {
+          "background_rgb": {
+            "default": [
+              255,
+              255,
+              255
+            ],
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Background Rgb",
+            "type": "array"
+          },
+          "background_tolerance": {
+            "default": 20,
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Background Tolerance",
+            "type": "integer"
+          },
+          "regions": {
+            "items": {
+              "$ref": "#/components/schemas/VisualRegion"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Regions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "regions"
+        ],
+        "title": "VisualFeatures",
+        "type": "object"
+      },
+      "VisualRegion": {
+        "additionalProperties": false,
+        "properties": {
+          "box": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Box",
+            "type": "array"
+          },
+          "component_id": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Component Id"
+          },
+          "id": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "box",
+          "visible"
+        ],
+        "title": "VisualRegion",
+        "type": "object"
       }
     }
   },
   "info": {
     "title": "MetaForge Verification",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -486,6 +1146,113 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/v1/artifact-uploads": {
+      "post": {
+        "operationId": "create_upload_v1_artifact_uploads_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Upload"
+      }
+    },
+    "/v1/artifact-uploads/{upload_id}/content": {
+      "put": {
+        "operationId": "stage_upload_v1_artifact_uploads__upload_id__content_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stage Upload"
       }
     },
     "/v1/artifacts": {
@@ -585,6 +1352,219 @@
         "summary": "Download"
       }
     },
+    "/v1/artifacts/{upload_id}/finalize": {
+      "post": {
+        "operationId": "finalize_upload_v1_artifacts__upload_id__finalize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize Upload"
+      }
+    },
+    "/v1/baselines": {
+      "post": {
+        "operationId": "approve_baseline_v1_baselines_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaselineCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Baseline"
+      }
+    },
+    "/v1/baselines/{baseline_id}": {
+      "get": {
+        "operationId": "get_baseline_v1_baselines__baseline_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "baseline_id",
+            "required": true,
+            "schema": {
+              "title": "Baseline Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Baseline"
+      }
+    },
+    "/v1/baselines/{baseline_id}/revoke": {
+      "post": {
+        "operationId": "revoke_baseline_v1_baselines__baseline_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "baseline_id",
+            "required": true,
+            "schema": {
+              "title": "Baseline Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Baseline"
+      }
+    },
     "/v1/capabilities": {
       "get": {
         "operationId": "capabilities_v1_capabilities_get",
@@ -629,6 +1609,509 @@
         "summary": "Capabilities"
       }
     },
+    "/v1/events": {
+      "get": {
+        "operationId": "event_stream_v1_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Event Stream"
+      }
+    },
+    "/v1/physical-evidence/{resource_id}": {
+      "get": {
+        "operationId": "get_physical_evidence_v1_physical_evidence__resource_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "title": "Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Physical Evidence"
+      }
+    },
+    "/v1/requirement-sets": {
+      "post": {
+        "operationId": "register_requirements_v1_requirement_sets_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequirementSetCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Requirements"
+      }
+    },
+    "/v1/requirement-sets/{resource_id}": {
+      "get": {
+        "operationId": "get_requirements_v1_requirement_sets__resource_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "title": "Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Requirements"
+      }
+    },
+    "/v1/scenario-suites": {
+      "post": {
+        "operationId": "register_scenarios_v1_scenario_suites_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioSuiteCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Scenarios"
+      }
+    },
+    "/v1/scenario-suites/{resource_id}": {
+      "get": {
+        "operationId": "get_scenarios_v1_scenario_suites__resource_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "title": "Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scenarios"
+      }
+    },
+    "/v1/twins/{twin_id}/revisions": {
+      "post": {
+        "operationId": "register_revision_v1_twins__twin_id__revisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Revision"
+      }
+    },
+    "/v1/twins/{twin_id}/revisions/{revision_id}": {
+      "get": {
+        "operationId": "get_revision_v1_twins__twin_id__revisions__revision_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "twin_id",
+            "required": true,
+            "schema": {
+              "title": "Twin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Revision"
+      }
+    },
+    "/v1/usage": {
+      "get": {
+        "operationId": "tenant_usage_v1_usage_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tenant Usage"
+      }
+    },
     "/v1/verification-plans": {
       "post": {
         "operationId": "verification_plan_v1_verification_plans_post",
@@ -654,7 +2137,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VerificationRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/VerificationRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VerificationByReference"
+                  }
+                ],
+                "title": "Body"
               }
             }
           },
@@ -719,7 +2210,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VerificationRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/VerificationRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VerificationByReference"
+                  }
+                ],
+                "title": "Body"
               }
             }
           },
@@ -854,6 +2353,68 @@
         "summary": "Cancel"
       }
     },
+    "/v1/verifications/{job_id}/comparison": {
+      "get": {
+        "operationId": "compare_v1_verifications__job_id__comparison_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "against",
+            "required": true,
+            "schema": {
+              "title": "Against",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Compare"
+      }
+    },
     "/v1/verifications/{job_id}/coverage": {
       "get": {
         "operationId": "coverage_v1_verifications__job_id__coverage_get",
@@ -905,6 +2466,221 @@
           }
         },
         "summary": "Coverage"
+      }
+    },
+    "/v1/verifications/{job_id}/events": {
+      "get": {
+        "operationId": "job_events_v1_verifications__job_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Job Events"
+      }
+    },
+    "/v1/verifications/{job_id}/findings": {
+      "get": {
+        "operationId": "findings_v1_verifications__job_id__findings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Findings"
+      }
+    },
+    "/v1/verifications/{job_id}/physical-evidence": {
+      "post": {
+        "operationId": "physical_evidence_v1_verifications__job_id__physical_evidence_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhysicalEvidenceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Physical Evidence"
       }
     },
     "/v1/verifications/{job_id}/report": {
@@ -968,6 +2744,194 @@
           }
         },
         "summary": "Report"
+      }
+    },
+    "/v1/verifications/{job_id}/reverify": {
+      "post": {
+        "operationId": "reverify_v1_verifications__job_id__reverify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reverify"
+      }
+    },
+    "/v1/verifications/{job_id}/reviews": {
+      "get": {
+        "operationId": "get_reviews_v1_verifications__job_id__reviews_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Reviews"
+      },
+      "post": {
+        "operationId": "review_v1_verifications__job_id__reviews_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review"
       }
     }
   }

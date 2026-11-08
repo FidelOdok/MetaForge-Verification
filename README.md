@@ -1,34 +1,34 @@
 # MetaForge Verification
 
-Independent, Apache-2.0 verification core for generated smart-device revisions.
-MetaForge is a client, not a required runtime dependency. Hosted account management,
-billing and provisioning belong in cloud extensions, not this package.
+**Evidence-backed verification for hardware revisions.**
 
-## Implemented first slice
+Submit a digital twin, approved requirements and scenarios. Get an asynchronous,
+traceable report showing what passed, what failed and which evidence is missing.
+Use it from MetaForge, another design agent, an engineering application or CI.
 
-- Versioned strict request/result contracts and a discoverable analytical lamp profile.
-- Immutable twin revisions and input fingerprints.
-- Persistent asynchronous jobs with SQLite locally or PostgreSQL, idempotency,
-  bounded admission, cancellation and fenced/renewable execution leases.
-- Sourced, unit-aware power budgets and single-node steady-state thermal estimates.
-- Centered declared-box enclosure-fit calculation, explicitly **not CAD measurement**.
-- Executable lamp behavior scenarios, explicitly **not compiled firmware tests**.
-- Controlled PNG comparison with revision/context/digest checks and difference regions.
-- Optional standalone Playwright/Chromium/Three.js capture worker producing four GLB views.
-- Artifact integrity, requirement coverage, pass/fail/inconclusive/not-assessed outcomes,
-  and JSON/Markdown evidence reports.
-- Token-to-tenant isolation for API, submissions and local artifact paths; fail-closed
-  startup unless local single-tenant mode is explicitly selected.
-- Trusted check-plugin and authentication extension seams.
-- Optional Temporal workflow/dispatcher using the same fenced execution path.
+The open core owns verification contracts, execution, engineering checks, evidence
+and review. It runs independently of MetaForge and cloud account/billing services.
 
-This is a runnable foundation, not the complete smart-device MVP or a qualified
-100-customer production deployment. No physical/certification claims are made.
-OCP/KiCad/ngspice execution, semantic visual review, calibrated physical inspection,
-VLM calls, S3 backend, webhooks, billing and incremental evidence reuse remain follow-up
-work. Unsupported requested rules remain explicit gaps. Consult `docs/architecture.md`.
+## What runs today
 
-## Quick start
+| Engine | Supported checks |
+| --- | --- |
+| Python rules engine + Pint | Requirement criteria, sourced quantities, power budgets, thermal estimates and conservative bounds |
+| OpenCASCADE through OCP | STEP solid validity, rigid assembly transforms, interference volume, clearance and envelope containment |
+| ngspice | Bounded resistive DC operating points, loss, KCL/power-balance qualification and sequential circuit-to-thermal evaluation |
+| OpenCV + Pillow | Controlled PNG regression and foreground mismatch in approved visible regions |
+| Playwright + Chromium + Three.js | Standalone four-view GLB capture with source/settings/browser hashes |
+| SQL worker / optional Temporal | Durable jobs, idempotency, renewable leases and fenced acceptance |
+
+Independent checks run concurrently. Native CAD/circuit work runs in separate Linux
+processes with CPU, memory, file, wall-time and network restrictions. Shared solver
+results are deduplicated within a job.
+
+Reviewer and design-agent credentials are separate. Approved baselines freeze criteria,
+scenario expectations and visual references. An agent cannot weaken that baseline to
+make a revision pass. Reviews remain separate from engineering measurements.
+
+## Start locally
 
 Python 3.12+:
 
@@ -36,115 +36,123 @@ Python 3.12+:
 python -m venv .venv
 . .venv/bin/activate
 pip install -e '.[dev]'
-export VERIFICATION_AUTH_MODE=local  # explicit single tenant; bind only to loopback
+export VERIFICATION_AUTH_MODE=local
 metaforge-verification api
 ```
 
-In another terminal with the same working directory/environment:
+In another terminal with the same environment and working directory:
 
 ```bash
 metaforge-verification worker
 ```
 
-Run the self-contained lamp demonstration (it creates its own temporary database):
+Open `/docs` for the API and `/review` for the evidence workbench. Local mode is an
+explicit single-tenant development mode; keep the API on loopback.
+
+Run the analytical demonstration:
 
 ```bash
 python examples/demo.py
 ```
 
-Or submit a request:
+For native engineering on Linux, install `ngspice` and `libseccomp2` using your OS
+package manager, then:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/v1/verifications \
-  -H 'Content-Type: application/json' -H 'Idempotency-Key: lamp-r1' \
-  --data-binary @examples/lamp.json
+pip install -r requirements-engineering.lock
+pip install --no-deps -e .
+python examples/digital_demo.py
 ```
 
-Without uploaded visual assets, that example honestly yields a visual coverage gap.
-The demo uploads controlled images and demonstrates failing and corrected revisions.
-OpenAPI is served at `/openapi.json`; interactive docs at `/docs`.
+The digital demonstration creates STEP enclosure/PCB fixtures, detects a seeded
+collision, corrects the PCB placement and verifies the next revision against the
+same reviewer-approved baseline. It also runs a 12 V divider, thermal bounds,
+behavior scenarios and a controlled image-region comparison. These are synthetic
+qualification fixtures, not a complete manufactured lamp design.
 
-## Identity and persistence
+## API workflow
 
-Default auth mode is `tokens`, which refuses startup without configured keys:
+1. Upload artifacts directly with `POST /v1/artifacts`, or use the bounded
+   `/v1/artifact-uploads` → content → finalize lifecycle.
+2. Register immutable twin revisions, requirement sets and scenario suites.
+3. Use `POST /v1/verification-plans` to inspect executable checks, input gaps and limits.
+4. Approve an immutable `/v1/baselines` snapshot with reviewer credentials.
+5. Submit `POST /v1/verifications` with an `Idempotency-Key`. Read status, cursor events,
+   paginated findings, coverage and JSON/Markdown reports.
+6. Submit a new revision through `/reverify`, inspect `/comparison`, and retain reviews
+   and externally supplied physical evidence separately.
+
+Embedded requests remain supported for existing clients. Reference-based submissions
+require explicit `accept_gaps: true` when the resolved plan has missing evidence.
+Use `VERIFICATION_REQUIRE_APPROVED_BASELINE=true` to require service-managed approval.
+
+See [the published OpenAPI](docs/openapi.json), [architecture](docs/architecture.md)
+and [implementation status against the draft](docs/implementation-status.md).
+
+## Identity and storage
+
+The default auth mode fails closed without configured tokens:
 
 ```bash
 export VERIFICATION_AUTH_MODE=tokens
-export VERIFICATION_TOKENS='{"replace-with-a-long-random-token":"organization-a"}'
+export VERIFICATION_TOKENS='{"replace-with-a-long-random-agent-token":"organization-a"}'
+export VERIFICATION_REVIEW_TOKENS='{"replace-with-a-different-reviewer-token":"organization-a"}'
+export VERIFICATION_REQUIRE_APPROVED_BASELINE=true
 ```
 
-Tokens are operator bootstrap configuration, not a production organization/role system.
-Do not commit them. An external cloud identity adapter may inject an `Authenticator`
-into `create_app`; the core never imports Supabase or a cloud package. The caller
-cannot select a tenant using a request field/header.
+These are bootstrap credentials. Keep real values out of source control. A cloud
+identity adapter can inject the public `Authenticator` protocol; the core does not
+import Supabase or a proprietary package. Tokens determine tenant identity.
 
-`VERIFICATION_DATABASE_URL` defaults to `sqlite:///./data/verification.db`.
-PostgreSQL uses `postgresql+psycopg://...` after `pip install -e '.[postgres]'`.
-`VERIFICATION_ARTIFACT_ROOT` defaults to `./data/artifacts`. Local workers must share
-that artifact path. It is not a distributed object store. Jobs and uploaded bytes
-survive API restarts; running API in-memory background tasks is deliberately avoided.
-
-`docker compose up --build` runs the local PostgreSQL/API/worker stack with loopback
-API ingress and a clearly local-only database password. Do not expose it unchanged.
-
-## Trusted rules and evidence
-
-`approval_ref` identifies the externally approved requirement baseline; this core
-records the assertion, it does not independently verify a human approval signature.
-Measurements/sources in submissions are externally supplied facts and remain labeled
-as such. Missing sources, incompatible units and insufficient fidelity cannot pass.
-The analytical profile requires power, thermal, declared-box fit, behavior and visual
-obligations; omitting a mandatory rule does not produce a complete profile pass.
-
-Plugins register on `metaforge.verification.checks` and implement `adapters/base.py`.
-Enable installed plugins with `VERIFICATION_LOAD_PLUGINS=true`. They are trusted
-operator code, not user-supplied scripts or a sandbox. Run heavy/untrusted parsers in
-separate qualified workers before claiming their support. A plugin cannot override
-a built-in rule ID.
-
-## Temporal option
+SQLite and tenant-scoped local artifacts are the development defaults. PostgreSQL
+and S3-compatible storage are available through configuration:
 
 ```bash
-pip install -e '.[temporal,postgres]'
-export VERIFICATION_TEMPORAL_ADDRESS=localhost:7233
-metaforge-verification temporal-worker
-# separate process, same DB and artifact storage:
-metaforge-verification temporal-dispatch
+pip install -e '.[postgres,s3]'
+export VERIFICATION_DATABASE_URL='postgresql+psycopg://...'
+export VERIFICATION_ARTIFACT_BACKEND=s3
+export VERIFICATION_S3_BUCKET='your-private-bucket'
+# Optional operator-controlled compatible endpoint:
+# export VERIFICATION_S3_ENDPOINT_URL='https://...'
 ```
 
-Use this pair **instead of** the SQL polling worker. SQL submissions form the durable
-dispatch outbox; workflow IDs deduplicate start attempts. Temporal is an optional
-runtime, not a dependency on MetaForge's application. See the architecture document
-for execution limits and unqualified deployment behavior.
+Use workload credentials and private bucket policies in a deployment. Local artifact
+storage requires a shared volume across workers. `compose.yaml` is a local
+PostgreSQL/API/worker stack. `Dockerfile.engineering` supplies native engineering
+packages; qualify the built image digest before promotion.
+
+## Operations and extensions
+
+- Cursor events and webhook deliveries use a transactional SQL outbox. Destinations
+  are operator-configured per tenant; deliveries are signed, retried and deduplicated.
+- `GET /v1/usage` reports accepted completions and accepted-attempt wall time. No
+  charging or production pricing policy is configured.
+- The scheduler enforces global/per-tenant running-job ceilings and dispatches the
+  least recently served eligible tenant. These are job ceilings, not aggregate
+  distributed CPU/memory reservations.
+- Optional Temporal uses the same immutable submissions and fenced worker. Run
+  `temporal-worker` plus `temporal-dispatch` instead of the SQL polling worker.
+- Trusted adapters register on `metaforge.verification.checks`. Enable reviewed
+  installed plugins with `VERIFICATION_LOAD_PLUGINS=true`. Uploaded scripts and
+  arbitrary customer netlists are not executed.
+
+[Deployment and migration notes](docs/operations.md) explain configuration, limits,
+webhook verification, cancellation and remaining qualification work.
 
 ## Development
 
 ```bash
+pip install -r requirements-dev.lock
+pip install --no-deps -e .
 ruff check .
 ruff format --check .
 pytest -q
-metaforge-verification openapi > /tmp/openapi.json
+python scripts/export_openapi.py --check
+python scripts/smoke_http.py
 python -m build
 ```
 
-The GitHub workflows run deterministic CI and package/container builds. Publishing
-images and deploying production are deliberately separate. There are no configured
-cloud accounts, secrets, production deployment or live performance claims.
-
-## Open core boundary
-
-Public: API, schemas, rules/evidence engine, local runner, basic profile, fixtures,
-qualified adapter interfaces and basic visual validation.
-
-Cloud extension: tenant provisioning and role administration, subscriptions/billing,
-managed scheduling/storage, enterprise policies and support. Use extension protocols;
-never add `if cloud_provider == ...` branches to core verification logic.
-
-License: Apache-2.0, matching the MetaForge open-core repository. This initial code is
-new; it does not vendor MetaForge's gateway or adapters. External tool/data licenses
-must be reviewed before adding distributions or proprietary components.
-
-## Controlled browser capture
+For controlled capture:
 
 ```bash
 cd visual-capture
@@ -153,17 +161,25 @@ npx playwright install --with-deps chromium
 node capture.mjs /absolute/path/model.glb ./output r1
 ```
 
-The capture worker owns its Three.js viewer; it does not open a customer session or
-fetch arbitrary URLs. It serves only bundled assets and the supplied GLB on loopback,
-blocks other origins and waits for explicit render readiness. It writes front/side/top/iso
-PNGs plus revision/model/context hashes. Upload selected PNGs through `/v1/artifacts`,
-then link the returned digests and capture context in the visual comparison contract.
-This CLI-to-API bridge is explicit; capture is not automatically scheduled by the API yet.
-Mesh framing is automatic, so compare precise scale/placement with CAD evidence.
+CI runs SQLite/PostgreSQL suites, native-engine fixtures, the digital correction loop,
+controlled rendering, browser workbench checks and package/container builds.
 
-Lockfiles: `requirements.lock` (runtime), `requirements-dev.lock` (qualification),
-and `visual-capture/package-lock.json`. CI uses the frozen dependency sets.
+## Release scope
 
-An operator may set `VERIFICATION_CHROMIUM_EXECUTABLE` to a qualified Chromium binary.
-Its actual version is recorded in capture context; do not compare baselines across
-unqualified environment changes.
+Version 0.2 expands the executable open core. The **full drafted product remains
+unfinished**; the [109-requirement register](docs/implementation-status.md) records
+implemented, partial and open obligations.
+
+Current exclusions include qualified KiCad ERC/DRC, semiconductor/transient circuit
+models, general wall-thickness/DFM, compiled firmware/HIL, calibrated physical
+inspection, semantic VLM review, automatic capture scheduling, cross-revision evidence
+cache reuse and production qualification for 100 organizations. EVT/DVT/PVT requests
+retain an explicit evidence gap. A named digital-profile pass is not certification
+or manufacturing approval.
+
+## Open core
+
+Apache-2.0. Public: contracts, rules, adapters, evidence, local execution, review and
+provider-neutral interfaces. Cloud extensions: account provisioning, subscriptions,
+commercial policies and managed operations. The private cloud repository remains
+outside this package. External engine/model licenses require their own review.
