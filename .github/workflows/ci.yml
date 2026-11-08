@@ -115,6 +115,11 @@ jobs:
           --memory 4g --cpus 2 --pids-limit 128
           -v "$PWD:/qualification:ro" -w /qualification
           metaforge-verification:engineering-ci python examples/digital_demo.py
+      - run: pip install -r requirements-engineering.lock && pip install --no-deps -e .
+      - run: >-
+          VERIFICATION_ENGINE_IMAGE="$(docker image inspect --format '{{.Id}}' metaforge-verification:engineering-ci)"
+          VERIFICATION_ENGINE_EXECUTOR=docker VERIFICATION_WORKER_ENGINES=ocp,ngspice,opencv
+          python examples/digital_demo.py
       - uses: actions/upload-artifact@v4
         with:
           name: python-distributions

@@ -16,6 +16,9 @@
 | VERIFICATION_S3_REGION | us-east-1 unless configured |
 | VERIFICATION_MAX_RUNNING_JOBS | 2 shared running-job slots by default |
 | VERIFICATION_MAX_RUNNING_PER_TENANT | 1 by default |
+| VERIFICATION_ENGINE_EXECUTOR | process by default; docker for isolated per-task native execution |
+| VERIFICATION_ENGINE_IMAGE | Required immutable registry digest or local sha256 image ID for docker executor |
+| VERIFICATION_DOCKER_HOST | Optional dedicated local unix:/// Docker socket for the trusted controller |
 | VERIFICATION_NGSPICE_EXECUTABLE | Optional absolute operator-configured binary path |
 | VERIFICATION_WORKER_ENGINES | Optional comma-separated ocp,ngspice,opencv declaration for separate worker images |
 | VERIFICATION_WEBHOOK_DESTINATIONS | JSON map tenant → HTTPS url and secret |
@@ -32,9 +35,16 @@ installed and enabled. Otherwise planning detects tools in its local runtime. An
 operator declaration is not a live worker heartbeat or qualification certificate;
 missing dependencies at execution still produce a visible gap.
 
-Native subprocesses deny network calls but still see the worker filesystem. Keep
-host secrets/designs from other tenants outside their mounts. Production per-job
-filesystem/container isolation and credential scoping remain release blockers.
+Process-mode native children deny network calls but still see the worker filesystem.
+Use the per-job Docker executor for a separate filesystem boundary, with an immutable
+engineering image preloaded into a dedicated local daemon. The controller must be
+non-root, and its temporary job paths must refer to the same host filesystem seen by
+the daemon. Do not expose the daemon socket to the API or native task containers.
+No credentials or host runtime paths are forwarded into the task container. Inspect
+executor/image fields in native evidence. Each container is capped at one CPU and
+1 GiB; admission still needs an aggregate deployment envelope and reconciliation.
+Production sandbox/credential policy and adversarial deployment qualification remain
+release blockers even when the container mechanism passes its CI fixture.
 
 ## Events, webhooks and usage
 

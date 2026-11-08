@@ -42,10 +42,19 @@ limits: 30 CPU seconds, 3 GiB virtual address space, 2 MiB per output file and 1
 files. The parent enforces a 45-second wall limit and kills the process group on
 cancellation, timeout or cleanup. ngspice also has a 20-second subprocess deadline.
 
-These controls do not provide filesystem isolation from the host. Deploy native
-workers non-root with restricted mounts, a read-only image, no service credentials,
-container/cgroup aggregate limits and a qualified image digest. The API image does
-not need CAD libraries. Do not treat a parser process as a complete security sandbox.
+The default process executor does not isolate the worker filesystem. The optional
+Docker executor runs each native task against a pinned image digest/ID, read-only
+root filesystem, job-only bind mount, no network, dropped capabilities, no new
+privileges, one CPU, 1 GiB memory and a PID ceiling. It requires a non-root trusted
+controller with access to a dedicated local Docker daemon; the API and job containers
+must never receive that daemon socket. Only the generated job directory is mounted.
+Cancellation/timeouts forcibly remove the named task container. Daemon/cleanup
+failure requires operator reconciliation.
+
+Deploy and qualify the selected boundary, dedicated daemon and aggregate resource
+policy. The API image does not need CAD libraries. Neither mode qualifies arbitrary
+plugins or customer code. CI exercises both the engineering image and the per-job
+container correction loop; no production sandbox certification is implied.
 
 ## Engineering support
 

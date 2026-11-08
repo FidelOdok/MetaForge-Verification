@@ -8,7 +8,7 @@ Implemented means the named bounded capability has code and a corresponding test
 | --- | --- | --- |
 | FR-IN-001 | Partial | Partial manifests, missing-input plans, and STEP support; KiCad intake remains. |
 | FR-IN-002 | Partial | Artifact hashes and immutable design/resources implemented; broader component semantics remain. |
-| FR-IN-003 | Partial | Native process/time/CPU/memory/file bounds and denied network; full filesystem/container qualification remains. |
+| FR-IN-003 | Partial | Process limits/network denial and optional pinned per-job Docker isolation; production qualification remains. |
 | FR-IN-004 | Partial | Original hashes and generated SPICE netlist/raw output retained; general conversion lineage remains. |
 | FR-IN-005 | Open | Not delivered; retain as an explicit release obligation. |
 | FR-IN-006 | Partial | Units, duplicate IDs and conflicting numeric constraints checked; general semantic conflicts remain. |
@@ -79,7 +79,7 @@ Implemented means the named bounded capability has code and a corresponding test
 | NFR-004 | Partial | Idempotency, late-result fencing and ledger deduplication tested; deployment fault drills remain. |
 | NFR-005 | Partial | Native numerical fixtures and actual solver versions; full supported-profile corpus remains. |
 | NFR-006 | Open | Not delivered; retain as an explicit release obligation. |
-| NFR-007 | Partial | Native resource limits and seccomp egress denial; filesystem/container boundaries remain. |
+| NFR-007 | Partial | Native limits, seccomp egress denial and per-job Docker boundary; deployed adversarial qualification remains. |
 | NFR-008 | Partial | Frozen Python/Node dependencies; signed/pinned engineering image promotion remains. |
 | NFR-009 | Partial | No inherited customer credentials in native process; broad operational redaction audit remains. |
 | NFR-010 | Partial | Job/attempt events and native failure reasons; full metrics/traces/dashboard remain. |

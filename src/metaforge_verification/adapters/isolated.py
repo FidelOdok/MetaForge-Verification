@@ -6,14 +6,74 @@ worker with a read-only image, restricted mounts, no credentials and denied egre
 
 import json
 import os
+import re
+import shutil
 import signal
 import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from pathlib import Path
 
 from metaforge_verification.adapters.base import CheckUnavailable, InvalidEvidence
+
+
+def container_command(directory):
+    executable = shutil.which("docker")
+    image = os.getenv("VERIFICATION_ENGINE_IMAGE", "")
+    if not executable or not re.fullmatch(
+        r"(?:[A-Za-z0-9][A-Za-z0-9./:_-]*@)?sha256:[a-f0-9]{64}", image
+    ):
+        raise CheckUnavailable("Container executor requires Docker and a pinned image digest/ID")
+    if os.getuid() == 0:
+        raise CheckUnavailable("Container executor controller must run as a non-root user")
+    name = "verification-engine-" + uuid.uuid4().hex
+    command = [
+        executable,
+        "run",
+        "--rm",
+        "--pull",
+        "never",
+        "--name",
+        name,
+        "--network",
+        "none",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--cpus",
+        "1",
+        "--memory",
+        "1g",
+        "--memory-swap",
+        "1g",
+        "--pids-limit",
+        "128",
+        "--user",
+        f"{os.getuid()}:{os.getgid()}",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=128m",
+        "--mount",
+        f"type=bind,src={directory},dst=/job",
+        "--env",
+        "HOME=/tmp",
+        "--env",
+        "OMP_NUM_THREADS=1",
+        "--env",
+        "OPENBLAS_NUM_THREADS=1",
+        "--env",
+        "SPICE_ASCIIRAWFILE=1",
+        "--entrypoint",
+        "python",
+        image,
+        "-m",
+        "metaforge_verification.engineering_worker",
+        "/job",
+    ]
+    return command, [executable, "rm", "--force", name]
 
 
 def engineering_task(task, blobs=None, timeout=45, cancelled=None):
@@ -41,9 +101,24 @@ def engineering_task(task, blobs=None, timeout=45, cancelled=None):
             if not Path(executable).is_absolute():
                 raise CheckUnavailable("Configured ngspice executable must be an absolute path")
             env["VERIFICATION_NGSPICE_EXECUTABLE"] = executable
+        mode = os.getenv("VERIFICATION_ENGINE_EXECUTOR", "process")
+        command = [sys.executable, "-m", "metaforge_verification.engineering_worker", directory]
+        cleanup = None
+        if mode == "docker":
+            command, cleanup = container_command(directory)
+            # These configure the trusted controller's daemon connection, not the job container.
+            docker_host = os.getenv("VERIFICATION_DOCKER_HOST")
+            if docker_host:
+                if not docker_host.startswith("unix:///"):
+                    raise CheckUnavailable(
+                        "Dedicated Docker transport must use an absolute Unix socket"
+                    )
+                env["DOCKER_HOST"] = docker_host
+        elif mode != "process":
+            raise CheckUnavailable("Unknown engineering executor")
         with (root / "process.log").open("wb") as output:
             child = subprocess.Popen(
-                [sys.executable, "-m", "metaforge_verification.engineering_worker", directory],
+                command,
                 cwd=directory,
                 env=env,
                 stdout=output,
@@ -69,6 +144,20 @@ def engineering_task(task, blobs=None, timeout=45, cancelled=None):
                 except ProcessLookupError:
                     pass
                 child.wait()
+                if cleanup:
+                    try:
+                        subprocess.run(
+                            cleanup,
+                            env=env,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            timeout=10,
+                        )
+                    except (OSError, subprocess.TimeoutExpired):
+                        # Failed cleanup must not turn a timeout/cancel into accepted evidence.
+                        raise InvalidEvidence(
+                            "Container cleanup requires operator reconciliation"
+                        ) from None
         path = root / "result.json"
         if child.returncode or not path.exists() or path.stat().st_size > 256_000:
             raise InvalidEvidence("Engineering process failed or exceeded resource limits")
@@ -80,4 +169,12 @@ def engineering_task(task, blobs=None, timeout=45, cancelled=None):
             raise CheckUnavailable(result["unavailable"])
         if result.get("error"):
             raise InvalidEvidence(result["error"])
+        result["executor"] = {
+            "backend": mode,
+            "image": os.getenv("VERIFICATION_ENGINE_IMAGE") if mode == "docker" else None,
+            "filesystem_scope": "job-only bind + read-only image"
+            if mode == "docker"
+            else "worker host",
+            "network": "denied",
+        }
         return result

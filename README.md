@@ -21,7 +21,8 @@ and review. It runs independently of MetaForge and cloud account/billing service
 | SQL worker / optional Temporal | Durable jobs, idempotency, renewable leases and fenced acceptance |
 
 Independent checks run concurrently. Native CAD/circuit work runs in separate Linux
-processes with CPU, memory, file, wall-time and network restrictions. Shared solver
+processes with CPU, memory, file, wall-time and network restrictions. An optional
+per-task Docker executor adds a pinned read-only image and job-only filesystem mount. Shared solver
 results are deduplicated within a job.
 
 Reviewer and design-agent credentials are separate. Approved baselines freeze criteria,
