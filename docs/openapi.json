@@ -76,6 +76,16 @@
             "title": "Concept Mesh",
             "type": "boolean"
           },
+          "form": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormFacts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "functions": {
             "items": {
               "$ref": "#/components/schemas/Function"
@@ -287,6 +297,64 @@
           "needs"
         ],
         "title": "Fix",
+        "type": "object"
+      },
+      "FormFacts": {
+        "additionalProperties": false,
+        "description": "The shape of the product, as the client declares it.\n\n``enclosure`` is the engine's one template. ``authored`` is a form whose parts carry\ngeometry code the client runs in a sandbox. Optional on the revision: a client that does\nnot send it, or sends ``enclosure``, gets the report it always got.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "enclosure",
+              "authored"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/FormPart"
+            },
+            "maxItems": 24,
+            "title": "Parts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "FormFacts",
+        "type": "object"
+      },
+      "FormPart": {
+        "additionalProperties": false,
+        "description": "One part of an authored form. Its code stays with the client; only what the profile\nreads is sent: what it is called and how much it can be trusted as geometry.",
+        "properties": {
+          "body": {
+            "default": false,
+            "title": "Body",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "generated",
+              "primitive",
+              "component"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "title": "FormPart",
         "type": "object"
       },
       "Function": {

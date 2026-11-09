@@ -177,6 +177,44 @@ class Part(Contract):
     has_envelope: bool = False
 
 
+FormKind = Literal["enclosure", "authored"]
+PartKind = Literal["generated", "primitive", "component"]
+
+
+class FormPart(Contract):
+    """One part of an authored form. Its code stays with the client; only what the profile
+    reads is sent: what it is called and how much it can be trusted as geometry."""
+
+    id: str = Field(pattern=ID)
+    #: ``generated`` geometry the agent wrote, a declared ``primitive``, or a bought ``component``.
+    kind: PartKind
+    #: The part the engine would place the electronics inside.
+    body: bool = False
+
+
+class FormFacts(Contract):
+    """The shape of the product, as the client declares it.
+
+    ``enclosure`` is the engine's one template. ``authored`` is a form whose parts carry
+    geometry code the client runs in a sandbox. Optional on the revision: a client that does
+    not send it, or sends ``enclosure``, gets the report it always got.
+    """
+
+    kind: FormKind
+    parts: list[FormPart] = Field(default_factory=list, max_length=24)
+
+    @model_validator(mode="after")
+    def coherent(self):
+        ids = [p.id for p in self.parts]
+        if len(set(ids)) != len(ids):
+            raise ValueError("form part ids must be unique")
+        if sum(1 for p in self.parts if p.body) > 1:
+            raise ValueError("at most one form part may be the body")
+        if self.kind == "authored" and not self.parts:
+            raise ValueError("an authored form needs at least one part")
+        return self
+
+
 class ProcessContext(Contract):
     process: str | None = Field(default=None, max_length=100)
     material: str | None = Field(default=None, max_length=100)
@@ -201,6 +239,9 @@ class ConceptRevision(Contract):
     interface_count: int = Field(default=0, ge=0)
     screening_stored: bool = False
     concept_mesh: bool = False
+    #: The product's form, when it is not the engine's enclosure template. ``None`` means the
+    #: client did not say, and no form finding is made.
+    form: FormFacts | None = None
 
     @model_validator(mode="after")
     def consistent_references(self):

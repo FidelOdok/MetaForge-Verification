@@ -507,6 +507,56 @@ class DefineRequirementTests(_DefineSupplied):
     ok_text = "has a planned test"
 
 
+class _Form(Rule):
+    """Advisory findings about an authored form. They never block: they make visible what the
+    profile did not assess, and they apply only when the client says the form is authored."""
+
+    gate: ClassVar[Gate] = "handover"
+    severity: ClassVar[Severity] = "advisory"
+
+    @staticmethod
+    def authored(rev: ConceptRevision):
+        return rev.form if rev.form is not None and rev.form.kind == "authored" else None
+
+
+class FormEnclosureChecks(_Form):
+    check_id = "form.enclosure_checks"
+
+    def evaluate(self, rev):
+        if self.authored(rev) is None:
+            return []
+        return [
+            self.finding(
+                Status.NOT_ASSESSED,
+                _studio(rev, "form"),
+                "The form is authored, so the checks that need an enclosure (wall thickness, "
+                "draft, fit of the electronics, moulding and cost) were not assessed.",
+            )
+        ]
+
+
+class FormConfidenceMix(_Form):
+    check_id = "form.confidence_mix"
+
+    def evaluate(self, rev):
+        form = self.authored(rev)
+        if form is None or any(p.kind != "component" for p in form.parts):
+            return []
+        return [
+            self.finding(
+                Status.FAIL,
+                _studio(rev, "form"),
+                "Every part of the form is a bought component, so nothing in it shapes this "
+                "product's own form and the scene does not read as a finished design.",
+                fix=Fix(
+                    op="add",
+                    pointer="/form/parts",
+                    needs="a part whose geometry is generated or declared for this product",
+                ),
+            )
+        ]
+
+
 RULES: tuple[Rule, ...] = (
     LedgerReviewed(),
     AssumptionsSettled(),
@@ -525,6 +575,8 @@ RULES: tuple[Rule, ...] = (
     DefineMarketsChosen(),
     DefineRequirementValues(),
     DefineRequirementTests(),
+    FormEnclosureChecks(),
+    FormConfidenceMix(),
 )
 
 LIMITATIONS = [
@@ -534,4 +586,6 @@ LIMITATIONS = [
     "Whether a requirement has a value or a planned test is the client's answer; "
     "when it is not supplied the check reads not_assessed.",
     "A part's source is checked for presence, not that it was read or says what is claimed.",
+    "A form the client calls authored is not assessed against enclosure checks; the profile "
+    "says so and does not guess.",
 ]

@@ -39,6 +39,18 @@ A client's own readiness answers (`has_value`, `has_test` on a requirement) are
 optional. When one is not supplied the check reads `not_assessed`. The service does not
 guess.
 
+### The form
+
+A revision may carry `form`, the shape of the product as the client declares it:
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | `enclosure` (the client's single template) or `authored` (a form built from parts that carry geometry code). |
+| `parts` | For an authored form, each part's `id`, its `kind` (`generated`, `primitive` or `component`, which says how far to trust it as geometry) and whether it is the `body`. The code stays with the client. |
+
+The field is optional and additive. A revision without it, or with an `enclosure` form,
+produces the report it always did. The client sends it only for an authored form.
+
 ## The report
 
 Each `ValidationFinding` has:
@@ -123,6 +135,14 @@ programme view, where it is stricter on purpose.
 | `define.markets_chosen` | at least one market |
 | `define.requirement_values` | every requirement has a value (client's answer) |
 | `define.requirement_tests` | every requirement has a planned test (client's answer) |
+
+The form rules apply only when the client says the form is `authored`. Both are advisory,
+so they cannot change a verdict, a gate or a level:
+
+| check_id | Meaning |
+| --- | --- |
+| `form.enclosure_checks` | the form is authored, so the checks that need an enclosure (wall, draft, fit, moulding, cost) were not assessed; reads `not_assessed`, never `pass` |
+| `form.confidence_mix` | every part is a bought component, so nothing shapes the product's own form; fails with a fix that names what is needed and no value |
 
 The difference between the two gates is deliberate. A studio can pass the handover with
 every assumption merely accepted and still fail the Define exit. The report now says so.

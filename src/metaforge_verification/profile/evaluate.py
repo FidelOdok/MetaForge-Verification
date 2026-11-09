@@ -56,6 +56,7 @@ def known_refs(rev: ConceptRevision) -> set[tuple[str, str]]:
             "functions",
             "markets",
             "concept_mesh",
+            "form",
             "interfaces",
             "screening",
         )
