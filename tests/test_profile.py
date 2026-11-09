@@ -9,6 +9,7 @@ from metaforge_verification.profile import evaluate
 from metaforge_verification.profile.contracts import (
     Fix,
     Ref,
+    Status,
     ValidationFinding,
     ValidationRequest,
 )
@@ -83,11 +84,22 @@ def config_failure():
     )
 
 
+def config_pass():
+    """What a client supplies when its own config check came back clean."""
+    return config_failure().model_copy(
+        update={
+            "id": "f_config_ok",
+            "status": Status.PASS,
+            "message": "The config passes the client's checks.",
+        }
+    )
+
+
 # -- a ready revision -------------------------------------------------------
 
 
 def test_a_ready_revision_passes_every_gate_at_v2():
-    report = evaluate.validate(request())
+    report = evaluate.validate(request(supplied=[config_pass()]))
     assert report.verdict == "ready_for_handover"
     assert report.level == "V2"
     assert {g.gate: g.decision for g in report.gates} == {
@@ -317,11 +329,58 @@ def test_supplied_findings_may_not_claim_a_gate_the_service_owns():
         request(supplied=[forged])
 
 
-def test_a_supplied_advisory_warning_does_not_invalidate():
+def test_a_supplied_advisory_warning_alongside_a_pass_does_not_invalidate():
+    warning = config_failure().model_copy(update={"id": "f_w", "severity": "advisory"})
+    report = evaluate.validate(request(supplied=[config_pass(), warning]))
+    assert report.verdict == "ready_for_handover"
+    config = next(g for g in report.gates if g.gate == "config_valid")
+    assert config.decision == "pass" and config.advisory == 1
+
+
+# -- the service never calls an unchecked config valid -------------------------
+
+
+def test_a_default_report_leaves_config_valid_out_when_nothing_was_supplied():
+    report = evaluate.validate(request())
+    assert [g.gate for g in report.gates] == ["handover", "define_exit"]
+    assert all(f.gate != "config_valid" for f in report.findings)
+    assert report.verdict == "ready_for_handover"
+
+
+def test_asking_for_config_valid_with_nothing_supplied_is_incomplete_not_pass():
+    report = evaluate.validate(request(gates=["config_valid"]))
+    gate = report.gates[0]
+    assert gate.gate == "config_valid" and gate.decision == "incomplete"
+    f = only(report, "config.not_supplied")
+    assert f.status == "not_assessed" and f.severity == "blocking" and f.resolver == "external"
+    assert report.verdict == "blocked_external"
+
+
+def test_not_supplied_is_not_invalid():
+    report = evaluate.validate(request(gates=["config_valid"]))
+    assert report.verdict != "invalid"
+
+
+def test_only_warnings_supplied_is_still_not_a_valid_config():
     warning = config_failure().model_copy(update={"severity": "advisory"})
     report = evaluate.validate(request(supplied=[warning]))
-    assert report.verdict == "ready_for_handover"
-    assert next(g for g in report.gates if g.gate == "config_valid").advisory == 1
+    assert only(report, "config.not_supplied").status == "not_assessed"
+    config = next(g for g in report.gates if g.gate == "config_valid")
+    assert config.decision == "incomplete"
+    assert report.verdict == "blocked_external"
+
+
+def test_a_supplied_failure_is_invalid_and_adds_no_not_supplied_finding():
+    report = evaluate.validate(request(supplied=[config_failure()]))
+    assert report.verdict == "invalid"
+    assert check(report, "config.not_supplied") == []
+
+
+def test_a_scope_can_name_the_config_finding():
+    report = evaluate.validate(
+        request(gates=["config_valid"], scope=[{"kind": "studio", "id": "config"}])
+    )
+    assert [f.check_id for f in report.findings] == ["config.not_supplied"]
 
 
 def test_level_never_exceeds_v2_and_needs_a_stored_screening():
