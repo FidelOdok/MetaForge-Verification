@@ -1,0 +1,149 @@
+annotated-doc==0.0.5
+    # via fastapi
+annotated-types==0.8.0
+    # via pydantic
+anyio==4.16.0
+    # via
+    #   httpx
+    #   starlette
+boto3==1.43.126
+    # via metaforge-verification (pyproject.toml)
+botocore==1.43.126
+    # via
+    #   boto3
+    #   s3transfer
+build==1.6.1
+    # via metaforge-verification (pyproject.toml)
+cadquery-ocp==7.8.1.1.post1
+    # via metaforge-verification (pyproject.toml)
+certifi==2026.10.23
+    # via
+    #   httpcore
+    #   httpx
+click==8.5.1
+    # via uvicorn
+contourpy==1.4.0
+    # via matplotlib
+cycler==0.12.1
+    # via matplotlib
+fastapi==0.162.2
+    # via metaforge-verification (pyproject.toml)
+flexcache==0.3
+    # via pint
+flexparser==0.4
+    # via pint
+fonttools==4.68.0
+    # via matplotlib
+h11==0.16.0
+    # via
+    #   httpcore
+    #   uvicorn
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via metaforge-verification (pyproject.toml)
+idna==3.20
+    # via
+    #   anyio
+    #   httpx
+iniconfig==2.3.1
+    # via pytest
+jmespath==1.1.0
+    # via
+    #   boto3
+    #   botocore
+kiwisolver==1.5.1
+    # via matplotlib
+matplotlib==3.11.2
+    # via vtk
+nexus-rpc==1.4.0
+    # via temporalio
+numpy==2.5.4
+    # via
+    #   metaforge-verification (pyproject.toml)
+    #   contourpy
+    #   matplotlib
+    #   opencv-python-headless
+opencv-python-headless==4.11.0.86
+    # via metaforge-verification (pyproject.toml)
+opentelemetry-api==1.45.2
+    # via fastapi
+packaging==26.3
+    # via
+    #   build
+    #   matplotlib
+    #   pytest
+pillow==12.3.0
+    # via
+    #   metaforge-verification (pyproject.toml)
+    #   matplotlib
+pint==0.26.2
+    # via metaforge-verification (pyproject.toml)
+platformdirs==4.14.5
+    # via pint
+pluggy==1.7.0
+    # via pytest
+protobuf==7.36.2
+    # via temporalio
+psycopg==3.3.8
+    # via metaforge-verification (pyproject.toml)
+psycopg-binary==3.3.8
+    # via psycopg
+pydantic==2.14.3
+    # via
+    #   metaforge-verification (pyproject.toml)
+    #   fastapi
+pydantic-core==2.50.4
+    # via pydantic
+pygments==2.21.0
+    # via pytest
+pyparsing==3.3.3
+    # via matplotlib
+pyproject-hooks==1.3.3
+    # via build
+pytest==9.2.0
+    # via metaforge-verification (pyproject.toml)
+python-dateutil==2.9.0.post0
+    # via
+    #   botocore
+    #   matplotlib
+ruff==0.17.4
+    # via metaforge-verification (pyproject.toml)
+s3transfer==0.19.3
+    # via boto3
+six==1.17.0
+    # via python-dateutil
+sqlalchemy==2.1.8
+    # via metaforge-verification (pyproject.toml)
+starlette==1.10.0
+    # via fastapi
+temporalio==1.35.0
+    # via metaforge-verification (pyproject.toml)
+types-protobuf==7.35.1.20260906
+    # via temporalio
+typing-extensions==4.16.0
+    # via
+    #   anyio
+    #   fastapi
+    #   flexcache
+    #   flexparser
+    #   nexus-rpc
+    #   opentelemetry-api
+    #   pint
+    #   psycopg
+    #   pydantic
+    #   pydantic-core
+    #   sqlalchemy
+    #   starlette
+    #   temporalio
+    #   typing-inspection
+typing-inspection==0.4.5
+    # via
+    #   fastapi
+    #   pydantic
+urllib3==2.8.0
+    # via botocore
+uvicorn==0.54.0
+    # via metaforge-verification (pyproject.toml)
+vtk==9.3.1
+    # via cadquery-ocp

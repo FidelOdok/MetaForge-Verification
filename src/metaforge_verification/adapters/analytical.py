@@ -90,6 +90,58 @@ class ThermalEstimate:
         return CheckResult(value, ev)
 
 
+class ThermalWorstCase:
+    rule_id = "device.thermal_worst_case"
+    module = "scenario"
+    fidelity = "F2"
+
+    def run(self, request, artifacts):
+        if request.thermal_bounds is None:
+            raise CheckUnavailable(
+                "Approved ambient, dissipation and resistance upper bounds required"
+            )
+        bounds = request.thermal_bounds
+        ambient = convert(bounds.ambient_max.quantity, "degC")
+        power = convert(bounds.dissipation_max.quantity, "W")
+        resistance = convert(bounds.resistance_max.quantity, "K/W")
+        if ambient < -273.15 or power < 0 or resistance < 0:
+            raise InvalidEvidence("Invalid thermal bound")
+        # A purported upper bound below its nominal input cannot establish conservatism.
+        for name, upper, unit in (
+            ("ambient_temperature", ambient, "degC"),
+            ("dissipated_power", power, "W"),
+            ("thermal_resistance", resistance, "K/W"),
+        ):
+            if name in request.twin.facts and fact(request, name, unit) > upper:
+                raise InvalidEvidence(f"Upper bound is below nominal {name}")
+        value = Quantity(value=ambient + power * resistance, unit="degC")
+        fp = fingerprint(request)
+        return CheckResult(
+            value,
+            Evidence(
+                evidence_id=f"ev-{self.rule_id}-{fp[:16]}",
+                method=self.rule_id,
+                fidelity=self.fidelity,
+                input_fingerprint=fp,
+                measurements={"worst_case_temperature": value},
+                source_refs=[
+                    bounds.ambient_max.source_ref,
+                    bounds.dissipation_max.source_ref,
+                    bounds.resistance_max.source_ref,
+                ],
+                assumptions=[
+                    "Independent conservative upper bounds for monotone single-node steady state.",
+                    "No spatial, transient or firmware protection claim.",
+                ],
+                details={
+                    "ambient_max_degC": ambient,
+                    "dissipation_max_W": power,
+                    "resistance_max_K_per_W": resistance,
+                },
+            ),
+        )
+
+
 class EnclosureFit:
     rule_id = "geometry.declared_box_fit"
     module = "domain"

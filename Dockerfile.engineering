@@ -1,0 +1,16 @@
+FROM python:3.12-slim-bookworm
+WORKDIR /app
+# Native tool version is retained in every evidence result. Qualify the resulting
+# image digest before promotion; this Dockerfile does not claim an approved release.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ngspice libseccomp2 libgl1 libglib2.0-0 libxrender1 libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements-engineering.lock ./
+RUN pip install --no-cache-dir -r requirements-engineering.lock
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+RUN pip install --no-cache-dir --no-deps . \
+    && useradd --uid 10001 --create-home verification \
+    && mkdir -p /app/data/artifacts && chown -R verification:verification /app/data
+USER verification
+CMD ["metaforge-verification", "worker"]

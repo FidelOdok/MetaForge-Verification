@@ -3,10 +3,12 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { dirname, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { chromium } from 'playwright';
 
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 export const root = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 
 export function assetPath(path) {
   const allowed = new Set(['/three/build/three.module.js', '/three/build/three.core.js',
@@ -53,7 +55,14 @@ export async function capture(modelPath, output, revision) {
     await tab.goto(address,{waitUntil:'load',timeout:15000});
     await tab.waitForFunction(()=>window.renderReady===true,{},{timeout:15000});
     if(errors.length) throw new Error(errors.join('; '));
-    const settings={viewer_sha256:sha256(page),browser:browser.version(),three:'0.172.0',
+    const assets={};
+    for(const path of ['/three/build/three.module.js','/three/build/three.core.js',
+      '/three/examples/jsm/loaders/GLTFLoader.js','/three/examples/jsm/utils/BufferGeometryUtils.js'])
+      assets[path]=sha256(await readFile(assetPath(path)));
+    const three=JSON.parse(await readFile(resolve(root,'node_modules/three/package.json'),'utf8')).version;
+    const settings={viewer_sha256:sha256(page),capture_sha256:sha256(await readFile(fileURLToPath(import.meta.url))),
+      assets_sha256:assets,browser:browser.version(),three,
+      playwright:require('playwright/package.json').version,node:process.version,
       width:512,height:512,projection:'orthographic',lighting:'hemisphere-v1',
       directions:{front:[0,0,1],side:[1,0,0],top:[0,1,0],iso:[1,1,1]}};
     await mkdir(output,{recursive:true});

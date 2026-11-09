@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MetaForge Verification · Evidence review</title><link rel="stylesheet" href="/review/assets/review.css"></head>
+<body><main>
+<header><p class="eyebrow">MetaForge Verification</p><h1>Review the evidence behind a revision.</h1>
+<p>Inspect measurements, criteria and gaps. A digital model pass applies to its named profile and evidence level.</p></header>
+<form id="load"><label>API bearer token<input id="token" type="password" autocomplete="off" required></label>
+<label>Verification ID<input id="job" required pattern="[a-f0-9-]{36}"></label><button>Load report</button></form>
+<p id="status" role="status">Tokens stay in this page's memory and are sent only to this service.</p>
+<section id="result" hidden><div class="summary"><div><p>Gate decision</p><h2 id="gate"></h2></div><div><p>Twin / revision</p><strong id="revision"></strong><p id="profile"></p></div></div>
+<h2>Findings</h2><div class="scroll"><table><thead><tr><th>Requirement</th><th>Outcome</th><th>Measurement / criterion</th><th>Evidence level</th><th>Reason</th></tr></thead><tbody id="findings"></tbody></table></div>
+<h2>Controlled previews</h2><p>These previews are source-bound evidence. Dimensions and fit come from CAD checks.</p><div id="captures" class="captures"></div><h2>Evidence and assumptions</h2><div id="evidence"></div><h2>Coverage</h2><pre id="coverage"></pre>
+<h2>Limitations</h2><ul id="limitations"></ul>
+<h2>Record a review</h2><p>A reviewer token is required. A review does not overwrite a measured engineering failure.</p>
+<form id="review"><label>Requirement<select id="requirement" aria-label="Requirement"></select></label><label>Decision<select id="decision" aria-label="Decision"><option>needs_evidence</option><option>accepted</option><option>rejected</option></select></label>
+<label>Rationale<textarea id="rationale" required maxlength="2000"></textarea></label><button>Record review</button></form>
+<h2>Review history</h2><pre id="history"></pre></section>
+</main><script src="/review/assets/review.js" defer></script></body></html>

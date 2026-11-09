@@ -1,8 +1,8 @@
-include LICENSE README.md requirements.lock requirements-dev.lock
+include LICENSE README.md requirements.lock requirements-dev.lock requirements-engineering.lock
 recursive-include docs *.md *.json
 recursive-include examples *.py *.json
 recursive-include tests *.py
 recursive-include scripts *.py
-include Dockerfile compose.yaml
+include Dockerfile Dockerfile.engineering Dockerfile.testing compose.yaml compose.testing.yaml
 recursive-include visual-capture *.mjs *.html package.json package-lock.json
 prune visual-capture/node_modules

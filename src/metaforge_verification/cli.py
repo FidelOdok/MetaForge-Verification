@@ -6,7 +6,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "command",
-        choices=["api", "worker", "run-once", "openapi", "temporal-worker", "temporal-dispatch"],
+        choices=[
+            "api",
+            "worker",
+            "run-once",
+            "openapi",
+            "temporal-worker",
+            "temporal-dispatch",
+            "webhooks",
+            "webhooks-once",
+        ],
     )
     args = parser.parse_args()
     if args.command == "api":
@@ -32,6 +41,16 @@ def main():
             if args.command == "temporal-worker"
             else temporal_runtime.dispatch()
         )
+    elif args.command.startswith("webhooks"):
+        from metaforge_verification.config import Settings
+        from metaforge_verification.store import Store
+        from metaforge_verification.webhooks import deliver_once, serve
+
+        store = Store(Settings.from_env())
+        try:
+            deliver_once(store) if args.command == "webhooks-once" else serve(store)
+        finally:
+            store.engine.dispose()
     else:
         from metaforge_verification.config import Settings
         from metaforge_verification.store import Store
