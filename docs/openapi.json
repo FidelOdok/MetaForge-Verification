@@ -22,6 +22,152 @@
         "title": "ArtifactRef",
         "type": "object"
       },
+      "Assumption": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_by": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted By"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "unconfirmed",
+              "accepted",
+              "confirmed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state"
+        ],
+        "title": "Assumption",
+        "type": "object"
+      },
+      "ConceptRevision": {
+        "additionalProperties": false,
+        "description": "Declared facts about a design's intent, parts and context. Immutable input.",
+        "properties": {
+          "assumptions": {
+            "items": {
+              "$ref": "#/components/schemas/Assumption"
+            },
+            "maxItems": 200,
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "concept_mesh": {
+            "default": false,
+            "title": "Concept Mesh",
+            "type": "boolean"
+          },
+          "functions": {
+            "items": {
+              "$ref": "#/components/schemas/Function"
+            },
+            "maxItems": 200,
+            "title": "Functions",
+            "type": "array"
+          },
+          "interface_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Interface Count",
+            "type": "integer"
+          },
+          "ledger": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerRow"
+            },
+            "maxItems": 500,
+            "title": "Ledger",
+            "type": "array"
+          },
+          "markets": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Markets",
+            "type": "array"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/Part"
+            },
+            "maxItems": 500,
+            "title": "Parts",
+            "type": "array"
+          },
+          "process": {
+            "$ref": "#/components/schemas/ProcessContext"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementItem"
+            },
+            "maxItems": 500,
+            "title": "Requirements",
+            "type": "array"
+          },
+          "revision_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioItem"
+            },
+            "maxItems": 200,
+            "title": "Scenarios",
+            "type": "array"
+          },
+          "screening_stored": {
+            "default": false,
+            "title": "Screening Stored",
+            "type": "boolean"
+          },
+          "twin_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Twin Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "twin_id",
+          "revision_id"
+        ],
+        "title": "ConceptRevision",
+        "type": "object"
+      },
       "Criterion": {
         "additionalProperties": false,
         "properties": {
@@ -111,6 +257,114 @@
         "title": "Fact",
         "type": "object"
       },
+      "Fix": {
+        "additionalProperties": false,
+        "description": "A structured hint. It names what is needed and where from, never a value.",
+        "properties": {
+          "needs": {
+            "maxLength": 300,
+            "title": "Needs",
+            "type": "string"
+          },
+          "op": {
+            "enum": [
+              "set",
+              "add",
+              "remove"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "pointer": {
+            "maxLength": 300,
+            "title": "Pointer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "pointer",
+          "needs"
+        ],
+        "title": "Fix",
+        "type": "object"
+      },
+      "Function": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "part_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Id"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "Function",
+        "type": "object"
+      },
+      "GateResult": {
+        "additionalProperties": false,
+        "properties": {
+          "advisory": {
+            "default": 0,
+            "title": "Advisory",
+            "type": "integer"
+          },
+          "assumed": {
+            "default": 0,
+            "title": "Assumed",
+            "type": "integer"
+          },
+          "blocking": {
+            "default": 0,
+            "title": "Blocking",
+            "type": "integer"
+          },
+          "decision": {
+            "enum": [
+              "pass",
+              "fail",
+              "incomplete"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "gate": {
+            "enum": [
+              "config_valid",
+              "handover",
+              "define_exit"
+            ],
+            "title": "Gate",
+            "type": "string"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gate",
+          "rule_version",
+          "decision"
+        ],
+        "title": "GateResult",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -122,6 +376,126 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LedgerRow": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "LedgerRow",
+        "type": "object"
+      },
+      "Part": {
+        "additionalProperties": false,
+        "properties": {
+          "has_envelope": {
+            "default": false,
+            "title": "Has Envelope",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "interface_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Interface Count",
+            "type": "integer"
+          },
+          "retrieved": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieved"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "Part",
+        "type": "object"
+      },
+      "ProcessContext": {
+        "additionalProperties": false,
+        "properties": {
+          "material": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material"
+          },
+          "process": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          }
+        },
+        "title": "ProcessContext",
         "type": "object"
       },
       "Quantity": {
@@ -143,6 +517,50 @@
           "unit"
         ],
         "title": "Quantity",
+        "type": "object"
+      },
+      "Ref": {
+        "additionalProperties": false,
+        "description": "A stable address for what a finding is about.",
+        "properties": {
+          "id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "studio",
+              "part",
+              "ledger_row",
+              "requirement",
+              "assumption",
+              "scenario",
+              "function",
+              "interface",
+              "process"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "Ref",
         "type": "object"
       },
       "Requirement": {
@@ -196,6 +614,60 @@
         "title": "Requirement",
         "type": "object"
       },
+      "RequirementItem": {
+        "additionalProperties": false,
+        "properties": {
+          "has_test": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Test"
+          },
+          "has_value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Value"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "verification_defaulted": {
+            "default": false,
+            "title": "Verification Defaulted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "RequirementItem",
+        "type": "object"
+      },
       "Scenario": {
         "additionalProperties": false,
         "properties": {
@@ -227,6 +699,58 @@
         ],
         "title": "Scenario",
         "type": "object"
+      },
+      "ScenarioItem": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "default": false,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "confirmed_by": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed By"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "person",
+              "inferred"
+            ],
+            "title": "Origin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "origin"
+        ],
+        "title": "ScenarioItem",
+        "type": "object"
+      },
+      "Status": {
+        "enum": [
+          "pass",
+          "fail",
+          "assumed",
+          "inconclusive",
+          "not_assessed"
+        ],
+        "title": "Status",
+        "type": "string"
       },
       "Step": {
         "additionalProperties": false,
@@ -351,6 +875,274 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "ValidationFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_by": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Accepted By",
+            "type": "array"
+          },
+          "check_id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Check Id",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Ref"
+            },
+            "maxItems": 200,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "fix": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Fix"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gate": {
+            "enum": [
+              "config_valid",
+              "handover",
+              "define_exit"
+            ],
+            "title": "Gate",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 500,
+            "title": "Message",
+            "type": "string"
+          },
+          "resolver": {
+            "enum": [
+              "agent",
+              "person",
+              "external"
+            ],
+            "title": "Resolver",
+            "type": "string"
+          },
+          "rule_version": {
+            "maxLength": 50,
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "blocking",
+              "advisory"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Ref"
+          }
+        },
+        "required": [
+          "id",
+          "check_id",
+          "rule_version",
+          "gate",
+          "severity",
+          "status",
+          "target",
+          "message",
+          "resolver"
+        ],
+        "title": "ValidationFinding",
+        "type": "object"
+      },
+      "ValidationReport": {
+        "additionalProperties": false,
+        "properties": {
+          "debt": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationFinding"
+            },
+            "title": "Debt",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "gates": {
+            "items": {
+              "$ref": "#/components/schemas/GateResult"
+            },
+            "title": "Gates",
+            "type": "array"
+          },
+          "input_fingerprint": {
+            "title": "Input Fingerprint",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "V0",
+              "V1",
+              "V2"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "profile_version": {
+            "title": "Profile Version",
+            "type": "string"
+          },
+          "revision_id": {
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "revision_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Number"
+          },
+          "schema_version": {
+            "const": "2.0",
+            "default": "2.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "twin_id": {
+            "title": "Twin Id",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "invalid",
+              "needs_agent",
+              "blocked_external",
+              "needs_person",
+              "ready_for_handover"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_id",
+          "profile_version",
+          "twin_id",
+          "revision_id",
+          "input_fingerprint",
+          "level",
+          "gates",
+          "findings",
+          "debt",
+          "verdict",
+          "limitations"
+        ],
+        "title": "ValidationReport",
+        "type": "object"
+      },
+      "ValidationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "gates": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "config_valid",
+                    "handover",
+                    "define_exit"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gates"
+          },
+          "profile_id": {
+            "const": "imagine-v1",
+            "default": "imagine-v1",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/ConceptRevision"
+          },
+          "schema_version": {
+            "const": "2.0",
+            "default": "2.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Ref"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "supplied": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationFinding"
+            },
+            "maxItems": 500,
+            "title": "Supplied",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "ValidationRequest",
         "type": "object"
       },
       "VerificationRequest": {
@@ -627,6 +1419,63 @@
           }
         },
         "summary": "Capabilities"
+      }
+    },
+    "/v1/validations": {
+      "post": {
+        "description": "Synchronous dry run of a readiness profile over a submitted revision.\n\nPure and read-only: nothing is stored, no job is queued, and the same\ninput gives the same report. Findings say who can clear them and the\nverdict says who acts next; a client never computes its own.",
+        "operationId": "validations_v1_validations_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validations"
       }
     },
     "/v1/verification-plans": {
