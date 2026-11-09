@@ -20,6 +20,7 @@ x-runtime: &runtime
 services:
   api:
     <<: *runtime
+    networks: [testing, ingress]
     mem_limit: 512m
     cpus: 1.0
     ports: ["127.0.0.1:8086:8000"]
@@ -50,6 +51,7 @@ services:
 networks:
   testing:
     internal: true
+  ingress: {}
 volumes:
   testing-data:
   testing-results:

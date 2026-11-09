@@ -35,8 +35,9 @@ These public credentials are deliberately restricted to the loopback test setup:
 
 Tokens are entered into Swagger's Authorization header or the workbench token field.
 The workbench keeps tokens in page memory and does not put them in URLs/storage.
-This Compose file publishes only loopback ingress, uses an internal test network and
-retains test data in named volumes. Use distinct operator-managed credentials and
+This Compose file publishes only loopback ingress, gives the API an ingress network,
+keeps workers on an internal test network and retains test data in named volumes.
+Use distinct operator-managed credentials and
 qualified isolation before any external deployment.
 
 Stop services while keeping test data:
