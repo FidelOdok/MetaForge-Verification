@@ -34,6 +34,9 @@ def dependencies(request, rule):
             "visual": request.visual,
             "regions": request.visual_features,
             "revision": request.twin.revision_id,
+            "capture": request.capture,
+            "render_reference": request.render_reference,
+            "cad": request.cad if request.capture and request.capture.from_cad else None,
         }
     return request
 

@@ -54,8 +54,11 @@ Configure destinations on API and worker processes using the same secret source:
 {"organization-a":{"url":"https://customer.example/verification-events","secret":"replace-with-at-least-32-random-characters"}}
 ```
 
-No real secret belongs in this repository. Destinations are operator-managed; there
-is no customer URL registration endpoint yet. Run `metaforge-verification webhooks`
+No real secret belongs in this repository. Destinations are operator-managed; reviewers
+can register the configured destination through POST /v1/webhook-endpoints with
+{"destination":"default"}. Caller-supplied URLs/secrets are rejected. Reviewers can
+disable the registered endpoint; pending delivery intents are suppressed. A request
+already in flight may still complete. Run `metaforge-verification webhooks`
 as a separate dispatcher. It sends JSON events with:
 
 - `X-Verification-Event-ID`: stable event identity; deduplicate it.
@@ -103,3 +106,26 @@ hardware models remain separate acceptance work.
 
 Optional adapter dependencies do not certify a tool for every input. The release
 support matrix must remain bounded to executed fixtures and reviewed product models.
+
+## Integrated testing runtime
+
+See testing.md for the self-contained authenticated API/worker Compose package and
+HTTP correction demo. `VERIFICATION_RENDER_ROOT` selects the controlled Node package;
+`VERIFICATION_NODE_EXECUTABLE` and `VERIFICATION_CHROMIUM_EXECUTABLE` are optional
+absolute operator paths. `PLAYWRIGHT_BROWSERS_PATH` identifies the installed browser
+cache. Process rendering requires explicit `VERIFICATION_RENDER_ALLOW_PROCESS=true`;
+it is enabled only by the local testing helper/Compose package. A per-task Docker
+image used for rendering must contain the Node package/browser as well as the core.
+
+Rendering uses loopback sockets for its private asset server; the native seccomp
+socket-denial policy applies to CAD/circuit tasks, not this renderer. Per-task Docker
+mode retains `--network none`, so loopback works without external networking. Browser
+requests are also restricted to the private viewer origin, and external GLB URIs are
+rejected. Render processes need a larger virtual-address reservation for Chromium;
+physical memory must be bounded by the container/cgroup deployment, as in the test
+worker. Development process mode is not a production sandbox.
+
+Version 0.3 keeps legacy baseline semantics when adding the normal scenario-family
+label and optional render reference. Existing approved snapshots/report history are
+not rewritten. Registered resources and existing artifact ownership remain immutable;
+qualify upgrades/restores against your own data before production use.

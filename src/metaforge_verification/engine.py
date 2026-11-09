@@ -6,7 +6,7 @@ import logging
 import os
 import shutil
 import threading
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from importlib.metadata import entry_points
 
 from metaforge_verification.adapters.analytical import (
@@ -27,6 +27,7 @@ from metaforge_verification.adapters.engineering import (
     CircuitThermal,
     DCOperatingPoint,
 )
+from metaforge_verification.adapters.rendering import RenderCapture, RenderRegression
 from metaforge_verification.adapters.visual import PixelDifference, RegionSilhouette
 from metaforge_verification.contracts import Finding, Outcome, Report, fingerprint
 
@@ -50,6 +51,10 @@ PROFILES = {
         "visual.region_silhouette",
     },
 }
+PROFILES["smart-lamp-integrated-v1"] = (
+    PROFILES["smart-lamp-digital-v1"] - {"visual.pixel_difference", "visual.region_silhouette"}
+) | {"visual.render_regression"}
+PROFILES["artifact-render-v1"] = {"visual.render_capture"}
 LIMITATIONS = [
     "Named lamp profiles only; no certification or manufacturing approval.",
     "Declared boxes/component values are not independently measured CAD/circuit data.",
@@ -79,6 +84,8 @@ def registry(load_plugins=False):
             CircuitThermal(),
             ThermalWorstCase(),
             RegionSilhouette(),
+            RenderCapture(),
+            RenderRegression(),
         )
     }
     if load_plugins:
@@ -96,36 +103,43 @@ def references(request):
         refs.extend([request.visual.reference, request.visual.candidate])
     if request.cad:
         refs.extend(c.step for c in request.cad.components)
+    if request.capture and request.capture.model:
+        refs.append(request.capture.model)
+    if request.render_reference:
+        refs.extend([request.render_reference.manifest, *request.render_reference.images.values()])
     return refs
 
 
 class EvaluationArtifacts:
     """One evaluation's immutable artifact reader and shared in-flight engineering results."""
 
-    def __init__(self, reader, cancelled=None):
+    def __init__(self, reader, native_pool, cancelled=None):
         self.reader, self.lock, self.results = reader, threading.Lock(), {}
+        self.native_pool = native_pool
         self.cancelled = cancelled
 
     def read(self, artifact_id):
         return self.reader.read(artifact_id)
 
-    def engineering(self, task, blobs=None):
+    def put(self, data):
+        return self.reader.put(data)
+
+    def schedule(self, task, blobs=None):
         from metaforge_verification.adapters.isolated import engineering_task
 
         key = fingerprint(
             {"task": task, "blobs": [hashlib.sha256(b).hexdigest() for b in blobs or []]}
         )
         with self.lock:
-            first = key not in self.results
-            if first:
-                self.results[key] = Future()
+            if key not in self.results:
+                self.results[key] = self.native_pool.submit(
+                    engineering_task, task, blobs, cancelled=self.cancelled
+                )
             future = self.results[key]
-        if first:
-            try:
-                future.set_result(engineering_task(task, blobs, cancelled=self.cancelled))
-            except Exception as exc:
-                future.set_exception(exc)
-        return future.result()
+        return future
+
+    def engineering(self, task, blobs=None):
+        return self.schedule(task, blobs).result()
 
 
 def criterion_conflicts(request):
@@ -194,8 +208,23 @@ def readiness(request, rule):
             missing.append("scenarios")
     if rule == "device.thermal_worst_case" and request.thermal_bounds is None:
         missing.append("thermal_bounds")
-    if rule.startswith("visual.") and request.visual is None:
+    if rule in {"visual.pixel_difference", "visual.region_silhouette"} and request.visual is None:
         missing.append("visual")
+    if rule in {"visual.render_capture", "visual.render_regression"}:
+        root = os.getenv("VERIFICATION_RENDER_ROOT")
+        from pathlib import Path
+
+        default_root = Path(__file__).resolve().parents[2] / "visual-capture"
+        available = enabled(
+            "renderer",
+            bool(
+                (Path(root) if root else default_root).joinpath("node_modules/playwright").is_dir()
+            ),
+        )
+        if request.capture is None:
+            missing.append("capture")
+        if rule == "visual.render_regression" and request.render_reference is None:
+            missing.append("render_reference")
     if rule == "visual.region_silhouette":
         available = enabled("opencv", importlib.util.find_spec("cv2") is not None)
         if request.visual_features is None:
@@ -222,6 +251,7 @@ def plan(request, checks=None):
             PROFILES[request.profile_id] - {r.rule_id for r in request.requirements if r.required}
         ),
         "conflicting_requirements": sorted(criterion_conflicts(request)),
+        "missing_scenario_families": missing_scenario_families(request),
         "execution": {
             "max_parallel_checks": 4,
             "native_wall_seconds": 45,
@@ -233,11 +263,26 @@ def plan(request, checks=None):
     }
 
 
+def missing_scenario_families(request):
+    if request.profile_id != "smart-lamp-integrated-v1":
+        return []
+    behavior_ids = {
+        r.id for r in request.requirements if r.required and r.rule_id == "scenario.device_behavior"
+    }
+    observed = {s.family for s in request.scenarios if s.requirement_id in behavior_ids}
+    return sorted({"normal", "fault", "recovery"} - observed)
+
+
 def evaluate(job_id, request, artifacts, checks=None, cancelled=None):
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="native-engine") as native_pool:
+        return _evaluate(job_id, request, artifacts, checks, cancelled, native_pool)
+
+
+def _evaluate(job_id, request, artifacts, checks, cancelled, native_pool):
     checks = checks if checks is not None else registry()
     fp = fingerprint(request)
     evidence_list, findings = [], []
-    artifacts = EvaluationArtifacts(artifacts, cancelled)
+    artifacts = EvaluationArtifacts(artifacts, native_pool, cancelled)
     conflicts = criterion_conflicts(request)
     integrity_ok = True
     for ref in references(request):
@@ -259,6 +304,24 @@ def evaluate(job_id, request, artifacts, checks=None, cancelled=None):
             achieved_fidelity="F0",
         )
     )
+    # Schedule independent native jobs before check threads can all block on one
+    # shared solve. Four CAD criteria must not starve a ready circuit calculation.
+    requested = {
+        r.rule_id for r in request.requirements if r.id not in conflicts and r.rule_id in checks
+    }
+    if integrity_ok and not (cancelled and cancelled()):
+        if request.cad and any(rule.startswith("geometry.step_") for rule in requested):
+            artifacts.schedule(
+                {"engine": "cad", "assembly": request.cad.model_dump(mode="json")},
+                [artifacts.read(c.step.artifact_id) for c in request.cad.components],
+            )
+        if request.circuit and any(
+            rule.startswith("electrical.") or rule == "system.circuit_thermal_temperature"
+            for rule in requested
+        ):
+            artifacts.schedule(
+                {"engine": "circuit", "circuit": request.circuit.model_dump(mode="json")}
+            )
 
     def assess(requirement):
         result_evidence = None
@@ -334,6 +397,16 @@ def evaluate(job_id, request, artifacts, checks=None, cancelled=None):
         if ev is not None:
             evidence_list.append(ev)
     missing = plan(request, checks)["missing_profile_rules"]
+    for family in missing_scenario_families(request):
+        findings.append(
+            Finding(
+                requirement_id=f"profile:scenario-{family}",
+                rule_id="scenario.coverage",
+                module="scenario",
+                outcome=Outcome.NOT_ASSESSED,
+                reason=f"Required scenario family is absent: {family}",
+            )
+        )
     if request.lifecycle_stage != "concept":
         findings.append(
             Finding(
@@ -378,6 +451,17 @@ def evaluate(job_id, request, artifacts, checks=None, cancelled=None):
         ),
         "missing_profile_rules": missing,
         "scenario_total": len(request.scenarios),
+        "scenario_matrix": [
+            {
+                "requirement_id": s.requirement_id,
+                "scenario_id": s.id,
+                "family": s.family,
+                "configuration": "declared-model",
+                "evidence_level": "behavior_model",
+            }
+            for s in request.scenarios
+        ],
+        "missing_scenario_families": missing_scenario_families(request),
     }
     return Report(
         verification_id=job_id,

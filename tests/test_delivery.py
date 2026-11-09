@@ -108,3 +108,76 @@ def test_check_parallelism_preserves_report_order(payload, tmp_path):
     )
     assert [f.requirement_id for f in report.findings[1:3]] == ["first", "second"]
     assert all(f.outcome == "pass" for f in report.findings[1:3])
+
+
+def test_registered_webhook_authority_and_disable(settings, payload, headers):
+    from fastapi.testclient import TestClient
+
+    from metaforge_verification.api import create_app
+
+    settings.review_tokens = {"reviewer-long-random-token": "a"}
+    settings.webhook_destinations = {
+        "a": {"url": "https://approved.example.test/events", "secret": "s" * 32}
+    }
+    app = create_app(settings)
+    reviewer = {"Authorization": "Bearer reviewer-long-random-token"}
+    with TestClient(app) as client:
+        assert client.post("/v1/webhook-endpoints", json={}, headers=headers).status_code == 403
+        assert (
+            client.post(
+                "/v1/webhook-endpoints", json={"url": "http://127.0.0.1"}, headers=reviewer
+            ).status_code
+            == 422
+        )
+        registered = client.post("/v1/webhook-endpoints", json={}, headers=reviewer)
+        assert registered.status_code == 201
+        assert "s" * 32 not in registered.text
+        endpoint = registered.json()
+        assert (
+            client.post("/v1/webhook-endpoints", json={}, headers=reviewer).json()["id"]
+            == endpoint["id"]
+        )
+        other = {"Authorization": "Bearer tenant-b-long-random-token"}
+        assert client.get("/v1/webhook-endpoints", headers=other).json()["items"] == []
+        client.post("/v1/verifications", json=payload, headers=headers)
+        disabled = client.post(f"/v1/webhook-endpoints/{endpoint['id']}/disable", headers=reviewer)
+        assert disabled.json()["enabled"] is False
+        calls = []
+        while deliver_once(app.state.store, lambda *args: calls.append(args) or 204):
+            pass
+        assert calls == []
+
+
+def test_shared_cad_waiters_do_not_starve_ready_circuit(monkeypatch, payload, tmp_path):
+    import threading
+    from collections import Counter
+
+    from test_engineering import dc_payload, requirement
+
+    import metaforge_verification.adapters.isolated as isolated
+    from metaforge_verification.engine import evaluate
+    from metaforge_verification.store import LocalArtifactStore
+
+    barrier = threading.Barrier(2)
+    calls, lock = [], threading.Lock()
+
+    def native(task, blobs=None, timeout=45, cancelled=None):
+        with lock:
+            calls.append(task["engine"])
+        barrier.wait(timeout=3)
+        if task["engine"] == "cad":
+            return {"invalid_solids": 0, "tool_version": "fixture-native-1"}
+        return {"output_voltage_v": 6, "tool_version": "fixture-native-1"}
+
+    monkeypatch.setattr(isolated, "engineering_task", native)
+    dc_payload(payload)
+    reader = LocalArtifactStore(tmp_path, "a")
+    digest = reader.put(b"dispatch fixture; never parsed by a native engine")
+    ref = {"artifact_id": digest, "sha256": digest}
+    payload["cad"] = {"components": [{"id": "a", "step": ref}, {"id": "b", "step": ref}]}
+    payload["requirements"] = [
+        {**requirement("geometry.step_validity"), "id": f"CAD{i}"} for i in range(4)
+    ] + [requirement("electrical.dc_output_voltage", 7, "V", "<=", "F3")]
+    report = evaluate("dispatch", VerificationRequest.model_validate(payload), reader)
+    assert all(f.outcome == "pass" for f in report.findings[1:6])
+    assert Counter(calls) == Counter({"cad": 1, "circuit": 1})

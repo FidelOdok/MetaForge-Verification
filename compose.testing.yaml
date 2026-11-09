@@ -1,0 +1,55 @@
+# Loopback-only synthetic test stack. These public fixture credentials are not production keys.
+x-runtime: &runtime
+  image: metaforge-verification:testing
+  build:
+    context: .
+    dockerfile: Dockerfile.testing
+  environment: &environment
+    VERIFICATION_AUTH_MODE: tokens
+    VERIFICATION_TOKENS: '{"local-testing-agent-token":"testing"}'
+    VERIFICATION_REVIEW_TOKENS: '{"local-testing-reviewer-token":"testing"}'
+    VERIFICATION_REQUIRE_APPROVED_BASELINE: 'true'
+    VERIFICATION_DATABASE_URL: sqlite:////app/data/testing.db
+    VERIFICATION_ARTIFACT_ROOT: /app/data/artifacts
+    VERIFICATION_WORKER_ENGINES: ocp,ngspice,opencv,renderer
+    VERIFICATION_RENDER_ALLOW_PROCESS: 'true'
+    VERIFICATION_NODE_EXECUTABLE: /usr/local/bin/node
+    VERIFICATION_RENDER_ROOT: /opt/verification/render
+  volumes: ["testing-data:/app/data"]
+  networks: [testing]
+services:
+  api:
+    <<: *runtime
+    mem_limit: 512m
+    cpus: 1.0
+    ports: ["127.0.0.1:8086:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  worker:
+    <<: *runtime
+    mem_limit: 2g
+    cpus: 2.0
+    pids_limit: 256
+    command: ["metaforge-verification", "worker"]
+    depends_on:
+      api:
+        condition: service_healthy
+  demo:
+    <<: *runtime
+    profiles: [demo]
+    command: ["python", "examples/http_demo.py", "--base-url", "http://api:8000", "--output", "/app/test-results/latest.json"]
+    volumes: ["testing-data:/app/data", "testing-results:/app/test-results"]
+    depends_on:
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_started
+networks:
+  testing:
+    internal: true
+volumes:
+  testing-data:
+  testing-results:

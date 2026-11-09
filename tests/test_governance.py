@@ -201,3 +201,40 @@ def test_digital_model_cannot_close_physical_stage(payload, tmp_path):
     assert (
         next(f for f in result.findings if f.rule_id == "gate.lifecycle").outcome == "not_assessed"
     )
+
+
+def test_legacy_baseline_defaults_do_not_weaken_approval(settings, payload, headers):
+    import copy
+
+    from sqlalchemy import update
+
+    from metaforge_verification.contracts import fingerprint
+    from metaforge_verification.store import baselines
+
+    with baseline_client(settings) as client:
+        baseline = client.post(
+            "/v1/baselines",
+            headers=REVIEW,
+            json={"verification": payload, "rationale": "Legacy approved criteria"},
+        ).json()
+        old = copy.deepcopy(baseline["snapshot"])
+        old.pop("render_reference", None)
+        for scenario in old["scenarios"]:
+            scenario.pop("family", None)
+        with client.app.state.store.engine.begin() as conn:
+            conn.execute(
+                update(baselines)
+                .where(baselines.c.id == baseline["id"])
+                .values(snapshot=old, fingerprint=fingerprint(old))
+            )
+        payload["baseline_id"] = baseline["id"]
+        assert client.post("/v1/verifications", json=payload, headers=headers).status_code == 202
+        payload["requirements"][0]["criterion"]["threshold"]["value"] = 100
+        assert (
+            client.post(
+                "/v1/verifications",
+                json=payload,
+                headers={**headers, "Idempotency-Key": "weakened"},
+            ).status_code
+            == 409
+        )

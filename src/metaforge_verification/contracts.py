@@ -111,6 +111,18 @@ class Scenario(Contract):
     id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
     requirement_id: str = Field(min_length=1, max_length=100)
     steps: list[Step] = Field(min_length=1, max_length=100)
+    family: Literal["normal", "fault", "recovery"] = "normal"
+
+    @model_validator(mode="after")
+    def meaningful_family(self):
+        events = {s.event for s in self.steps}
+        if self.family == "fault" and not events & {"sensor_fault", "power_cycle", "disconnect"}:
+            raise ValueError("Fault scenario requires a fault stimulus")
+        if self.family == "recovery" and not (
+            {"disconnect", "reconnect"} <= events or "power_cycle" in events
+        ):
+            raise ValueError("Recovery scenario requires recovery stimuli")
+        return self
 
 
 class VisualComparison(Contract):
@@ -213,11 +225,49 @@ class VisualFeatures(Contract):
         return self
 
 
+class CaptureInput(Contract):
+    model: ArtifactRef | None = None
+    from_cad: bool = False
+
+    @model_validator(mode="after")
+    def one_source(self):
+        if (self.model is not None) == self.from_cad:
+            raise ValueError("Capture requires exactly one GLB or CAD source")
+        return self
+
+
+class RenderReference(Contract):
+    manifest: ArtifactRef
+    images: dict[Literal["front", "side", "top", "iso"], ArtifactRef]
+
+    @model_validator(mode="after")
+    def complete_views(self):
+        if set(self.images) != {"front", "side", "top", "iso"}:
+            raise ValueError("Reference requires front, side, top and iso images")
+        return self
+
+
+class RenderCreate(Contract):
+    twin_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    revision_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    source: CaptureInput
+    cad: CADAssembly | None = None
+
+    @model_validator(mode="after")
+    def cad_source(self):
+        if self.source.from_cad and self.cad is None:
+            raise ValueError("CAD capture requires an assembly")
+        return self
+
+
 class VerificationRequest(Contract):
     schema_version: Literal["1.0"] = "1.0"
-    profile_id: Literal["smart-lamp-analytical-v1", "smart-lamp-digital-v1"] = (
-        "smart-lamp-analytical-v1"
-    )
+    profile_id: Literal[
+        "smart-lamp-analytical-v1",
+        "smart-lamp-digital-v1",
+        "smart-lamp-integrated-v1",
+        "artifact-render-v1",
+    ] = "smart-lamp-analytical-v1"
     approval_ref: str = Field(min_length=1, max_length=500)
     lifecycle_stage: Literal["concept", "EVT", "DVT", "PVT"] = "concept"
     twin: Twin
@@ -231,9 +281,19 @@ class VerificationRequest(Contract):
     visual_features: VisualFeatures | None = None
     baseline_id: str | None = Field(default=None, pattern=r"^[a-f0-9-]{36}$")
     previous_verification_id: str | None = Field(default=None, pattern=r"^[a-f0-9-]{36}$")
+    capture: CaptureInput | None = None
+    render_reference: RenderReference | None = None
 
     @model_validator(mode="after")
     def unique_references(self):
+        if self.capture and self.capture.from_cad and self.cad is None:
+            raise ValueError("CAD capture requires an assembly")
+        if self.profile_id == "artifact-render-v1" and (
+            self.capture is None
+            or len(self.requirements) != 1
+            or self.requirements[0].rule_id != "visual.render_capture"
+        ):
+            raise ValueError("Artifact render profile permits only its capture obligation")
         ids = [r.id for r in self.requirements]
         if len(set(ids)) != len(ids):
             raise ValueError("Requirement IDs must be unique")
@@ -262,10 +322,16 @@ class UploadCreate(Contract):
     sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
+class WebhookEndpointCreate(Contract):
+    destination: Literal["default"] = "default"
+
+
 class RequirementSetCreate(Contract):
     name: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
     revision_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
-    profile_id: Literal["smart-lamp-analytical-v1", "smart-lamp-digital-v1"]
+    profile_id: Literal[
+        "smart-lamp-analytical-v1", "smart-lamp-digital-v1", "smart-lamp-integrated-v1"
+    ]
     requirements: list[Requirement] = Field(min_length=1, max_length=100)
 
     @model_validator(mode="after")
@@ -292,7 +358,9 @@ class VerificationByReference(Contract):
     twin_revision_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
     requirements_revision_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
     scenario_suite_revision_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
-    profile_revision_id: Literal["smart-lamp-analytical-v1", "smart-lamp-digital-v1"]
+    profile_revision_id: Literal[
+        "smart-lamp-analytical-v1", "smart-lamp-digital-v1", "smart-lamp-integrated-v1"
+    ]
     baseline_id: str | None = Field(default=None, pattern=r"^[a-f0-9-]{36}$")
     accept_gaps: bool = False
 
@@ -337,6 +405,9 @@ def baseline_snapshot(request: VerificationRequest):
         }
         if visual
         else None,
+        "render_reference": request.render_reference.model_dump(mode="json")
+        if request.render_reference
+        else None,
     }
 
 
@@ -348,6 +419,7 @@ def revision_snapshot(request: VerificationRequest):
         "behavior_model": request.behavior_model.model_dump(mode="json")
         if request.behavior_model
         else None,
+        "capture": request.capture.model_dump(mode="json") if request.capture else None,
         "visual_candidate": {
             "candidate": request.visual.candidate.model_dump(mode="json"),
             "context": request.visual.candidate_context_sha256,
@@ -367,7 +439,7 @@ class Evidence(Contract):
     source_refs: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     details: dict = Field(default_factory=dict)
-    tool_version: str = "metaforge-verification/0.2.0"
+    tool_version: str = "metaforge-verification/0.3.0"
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 

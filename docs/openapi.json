@@ -143,6 +143,28 @@
         "title": "CADComponent",
         "type": "object"
       },
+      "CaptureInput": {
+        "additionalProperties": false,
+        "properties": {
+          "from_cad": {
+            "default": false,
+            "title": "From Cad",
+            "type": "boolean"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArtifactRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CaptureInput",
+        "type": "object"
+      },
       "CircuitElement": {
         "additionalProperties": false,
         "properties": {
@@ -408,6 +430,70 @@
         "title": "Quantity",
         "type": "object"
       },
+      "RenderCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "cad": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CADAssembly"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/CaptureInput"
+          },
+          "twin_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,100}$",
+            "title": "Twin Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "twin_id",
+          "revision_id",
+          "source"
+        ],
+        "title": "RenderCreate",
+        "type": "object"
+      },
+      "RenderReference": {
+        "additionalProperties": false,
+        "properties": {
+          "images": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ArtifactRef"
+            },
+            "propertyNames": {
+              "enum": [
+                "front",
+                "side",
+                "top",
+                "iso"
+              ]
+            },
+            "title": "Images",
+            "type": "object"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ArtifactRef"
+          }
+        },
+        "required": [
+          "manifest",
+          "images"
+        ],
+        "title": "RenderReference",
+        "type": "object"
+      },
       "Requirement": {
         "additionalProperties": false,
         "properties": {
@@ -470,7 +556,8 @@
           "profile_id": {
             "enum": [
               "smart-lamp-analytical-v1",
-              "smart-lamp-digital-v1"
+              "smart-lamp-digital-v1",
+              "smart-lamp-integrated-v1"
             ],
             "title": "Profile Id",
             "type": "string"
@@ -543,6 +630,16 @@
       "Scenario": {
         "additionalProperties": false,
         "properties": {
+          "family": {
+            "default": "normal",
+            "enum": [
+              "normal",
+              "fault",
+              "recovery"
+            ],
+            "title": "Family",
+            "type": "string"
+          },
           "id": {
             "pattern": "^[A-Za-z0-9_-]{1,100}$",
             "title": "Id",
@@ -798,7 +895,8 @@
           "profile_revision_id": {
             "enum": [
               "smart-lamp-analytical-v1",
-              "smart-lamp-digital-v1"
+              "smart-lamp-digital-v1",
+              "smart-lamp-integrated-v1"
             ],
             "title": "Profile Revision Id",
             "type": "string"
@@ -875,6 +973,16 @@
               }
             ]
           },
+          "capture": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaptureInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "circuit": {
             "anyOf": [
               {
@@ -912,10 +1020,22 @@
             "default": "smart-lamp-analytical-v1",
             "enum": [
               "smart-lamp-analytical-v1",
-              "smart-lamp-digital-v1"
+              "smart-lamp-digital-v1",
+              "smart-lamp-integrated-v1",
+              "artifact-render-v1"
             ],
             "title": "Profile Id",
             "type": "string"
+          },
+          "render_reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "requirements": {
             "items": {
@@ -1123,12 +1243,25 @@
         ],
         "title": "VisualRegion",
         "type": "object"
+      },
+      "WebhookEndpointCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "destination": {
+            "const": "default",
+            "default": "default",
+            "title": "Destination",
+            "type": "string"
+          }
+        },
+        "title": "WebhookEndpointCreate",
+        "type": "object"
       }
     }
   },
   "info": {
     "title": "MetaForge Verification",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -1232,6 +1365,17 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -1276,6 +1420,17 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "201": {
             "content": {
@@ -1727,6 +1882,124 @@
           }
         },
         "summary": "Get Physical Evidence"
+      }
+    },
+    "/v1/renders": {
+      "post": {
+        "operationId": "render_v1_renders_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Render"
+      }
+    },
+    "/v1/renders/{job_id}": {
+      "get": {
+        "operationId": "render_result_v1_renders__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Render Result"
       }
     },
     "/v1/requirement-sets": {
@@ -2932,6 +3205,155 @@
           }
         },
         "summary": "Review"
+      }
+    },
+    "/v1/webhook-endpoints": {
+      "get": {
+        "operationId": "list_webhooks_v1_webhook_endpoints_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Webhooks"
+      },
+      "post": {
+        "operationId": "register_webhook_v1_webhook_endpoints_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEndpointCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Webhook"
+      }
+    },
+    "/v1/webhook-endpoints/{endpoint_id}/disable": {
+      "post": {
+        "operationId": "disable_webhook_v1_webhook_endpoints__endpoint_id__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpoint_id",
+            "required": true,
+            "schema": {
+              "title": "Endpoint Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disable Webhook"
       }
     }
   }

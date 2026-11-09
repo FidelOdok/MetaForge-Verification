@@ -7,6 +7,7 @@ from pathlib import Path
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Column,
     Float,
     Integer,
@@ -137,6 +138,16 @@ uploads = Table(
     Column("state", String(20), nullable=False),
     Column("expires", Float, nullable=False),
 )
+webhook_endpoints = Table(
+    "verification_webhook_endpoints",
+    metadata,
+    Column("id", String(36), primary_key=True),
+    Column("tenant", String(200), nullable=False, unique=True),
+    Column("url", String(2048), nullable=False),
+    Column("enabled", Boolean, nullable=False),
+    Column("created", Float, nullable=False),
+    Column("updated", Float, nullable=False),
+)
 
 
 class Conflict(Exception):
@@ -170,6 +181,73 @@ class Store:
         with self.engine.connect() as conn:
             row = conn.execute(select(jobs).where(jobs.c.id == job_id)).mappings().first()
             return dict(row) if row else None
+
+    def get_webhook_endpoint(self, tenant):
+        with self.engine.connect() as conn:
+            row = (
+                conn.execute(select(webhook_endpoints).where(webhook_endpoints.c.tenant == tenant))
+                .mappings()
+                .first()
+            )
+            return dict(row) if row else None
+
+    def register_webhook_endpoint(self, tenant, actor):
+        try:
+            return self._register_webhook_endpoint(tenant, actor)
+        except IntegrityError:
+            row = self.get_webhook_endpoint(tenant)
+            configured = self.settings.webhook_destinations.get(tenant)
+            if row and configured and row["url"] == configured["url"] and row["enabled"]:
+                return row
+            raise Conflict("Concurrent endpoint update; retry registration") from None
+
+    def _register_webhook_endpoint(self, tenant, actor):
+        destination = self.settings.webhook_destinations.get(tenant)
+        if not destination:
+            raise Conflict("No operator-approved HTTPS destination is configured for this tenant")
+        now = time.time()
+        with self.engine.begin() as conn:
+            old = (
+                conn.execute(select(webhook_endpoints).where(webhook_endpoints.c.tenant == tenant))
+                .mappings()
+                .first()
+            )
+            if old:
+                if old["url"] == destination["url"] and old["enabled"]:
+                    return dict(old)
+                row = {**dict(old), "url": destination["url"], "enabled": True, "updated": now}
+                conn.execute(
+                    update(webhook_endpoints)
+                    .where(webhook_endpoints.c.tenant == tenant)
+                    .values(url=destination["url"], enabled=True, updated=now)
+                )
+            else:
+                row = dict(
+                    id=str(uuid.uuid4()),
+                    tenant=tenant,
+                    url=destination["url"],
+                    enabled=True,
+                    created=now,
+                    updated=now,
+                )
+                conn.execute(insert(webhook_endpoints).values(**row))
+            self.event(conn, tenant, "webhook.registered", actor=actor, endpoint_id=row["id"])
+        return row
+
+    def disable_webhook_endpoint(self, tenant, endpoint_id, actor):
+        with self.engine.begin() as conn:
+            changed = conn.execute(
+                update(webhook_endpoints)
+                .where(
+                    webhook_endpoints.c.tenant == tenant,
+                    webhook_endpoints.c.id == endpoint_id,
+                    webhook_endpoints.c.enabled.is_(True),
+                )
+                .values(enabled=False, updated=time.time())
+            )
+            if changed.rowcount:
+                self.event(conn, tenant, "webhook.disabled", actor=actor, endpoint_id=endpoint_id)
+        return self.get_webhook_endpoint(tenant)
 
     def put_resource(self, tenant, kind, name, revision_id, data, actor):
         fp = fingerprint(data)
@@ -323,7 +401,10 @@ class Store:
                 details=details,
             )
         )
-        if tenant in self.settings.webhook_destinations:
+        endpoint = conn.execute(
+            select(webhook_endpoints.c.enabled).where(webhook_endpoints.c.tenant == tenant)
+        ).scalar_one_or_none()
+        if tenant in self.settings.webhook_destinations and endpoint is not False:
             cursor = inserted.inserted_primary_key[0]
             conn.execute(
                 insert(webhook_deliveries).values(
@@ -386,7 +467,7 @@ class Store:
                 else None
             )
 
-    def finish_webhook(self, row, status):
+    def finish_webhook(self, row, status, suppressed=False):
         success = status is not None and 200 <= status < 300
         with self.engine.begin() as conn:
             result = conn.execute(
@@ -397,7 +478,9 @@ class Store:
                     webhook_deliveries.c.lease_until >= time.time(),
                 )
                 .values(
-                    state="delivered"
+                    state="suppressed"
+                    if suppressed
+                    else "delivered"
                     if success
                     else "dead_letter"
                     if row["attempt"] >= 8
@@ -590,20 +673,41 @@ class Store:
                     )
                     if not baseline or baseline["revoked"] is not None:
                         raise Conflict("Approved baseline is absent or revoked")
-                    if baseline["fingerprint"] != fingerprint(baseline_snapshot(request)):
+                    approved_snapshot = {**baseline["snapshot"]}
+                    approved_snapshot.setdefault("render_reference", None)
+                    approved_snapshot["scenarios"] = [
+                        {"family": "normal", **scenario}
+                        for scenario in approved_snapshot.get("scenarios", [])
+                    ]
+                    if fingerprint(approved_snapshot) != fingerprint(baseline_snapshot(request)):
                         raise Conflict(
                             "Requirements, scenarios or references differ from approved baseline"
                         )
-                elif self.settings.require_approved_baseline:
+                elif (
+                    self.settings.require_approved_baseline
+                    and request.profile_id != "artifact-render-v1"
+                ):
                     raise Conflict("An approved baseline is required for submission")
                 revfp = fingerprint(revision_snapshot(request))
+                revision_twin_id = request.twin.twin_id
+                if request.profile_id == "artifact-render-v1":
+                    # Asset captures have an immutable source identity of their own;
+                    # their partial manifest must not replace a full engineering twin.
+                    revision_twin_id = (
+                        "render:" + hashlib.sha256(revision_twin_id.encode()).hexdigest()
+                    )
                 rev_where = and_(
                     revisions.c.tenant == tenant,
-                    revisions.c.twin_id == request.twin.twin_id,
+                    revisions.c.twin_id == revision_twin_id,
                     revisions.c.revision_id == request.twin.revision_id,
                 )
                 revision = conn.execute(select(revisions).where(rev_where)).mappings().first()
-                if revision and revision["fingerprint"] == fingerprint(request.twin):
+                legacy_snapshot = revision_snapshot(request)
+                legacy_snapshot.pop("capture", None)
+                if revision and revision["fingerprint"] in {
+                    fingerprint(request.twin),
+                    fingerprint(legacy_snapshot),
+                }:
                     # Upgrade a legacy v0.1 revision only if its complete recorded design matches.
                     candidates = conn.execute(
                         select(jobs.c.request).where(jobs.c.tenant == tenant)
@@ -634,7 +738,7 @@ class Store:
                     conn.execute(
                         insert(revisions).values(
                             tenant=tenant,
-                            twin_id=request.twin.twin_id,
+                            twin_id=revision_twin_id,
                             revision_id=request.twin.revision_id,
                             fingerprint=revfp,
                         )

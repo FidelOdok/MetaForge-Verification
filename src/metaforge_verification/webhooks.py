@@ -29,6 +29,10 @@ def deliver_once(store, sender=send):
     row = store.claim_webhook()
     if row is None:
         return False
+    endpoint = store.get_webhook_endpoint(row["tenant"])
+    if endpoint and not endpoint["enabled"]:
+        store.finish_webhook(row, None, suppressed=True)
+        return True
     destination = store.settings.webhook_destinations.get(row["tenant"])
     status = None
     if destination:

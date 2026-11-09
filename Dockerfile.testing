@@ -1,0 +1,27 @@
+FROM node:22-bookworm-slim AS node-runtime
+FROM python:3.12-bookworm
+WORKDIR /app
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-runtime /usr/local/lib/node_modules/npm /opt/npm
+RUN ln -s /opt/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s /opt/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && apt-get update && apt-get install -y --no-install-recommends ngspice libseccomp2 libgl1 \
+    && rm -rf /var/lib/apt/lists/*
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
+COPY visual-capture /opt/verification/render
+RUN cd /opt/verification/render && npm ci --ignore-scripts \
+    && npx playwright install --with-deps chromium
+COPY requirements-engineering.lock ./
+RUN pip install --no-cache-dir -r requirements-engineering.lock
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+COPY examples ./examples
+COPY scripts ./scripts
+RUN pip install --no-cache-dir --no-deps . \
+    && useradd --uid 10001 --create-home verification \
+    && mkdir -p /app/data/artifacts /app/test-results \
+    && chown -R verification:verification /app/data /app/test-results
+ENV VERIFICATION_RENDER_ROOT=/opt/verification/render
+USER verification
+EXPOSE 8000
+CMD ["uvicorn", "metaforge_verification.api:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

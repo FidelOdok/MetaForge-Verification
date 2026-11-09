@@ -9,6 +9,24 @@ Use it from MetaForge, another design agent, an engineering application or CI.
 The open core owns verification contracts, execution, engineering checks, evidence
 and review. It runs independently of MetaForge and cloud account/billing services.
 
+## Run the integrated test service
+
+```bash
+git switch feat/engineering-validation-engines
+docker compose -f compose.testing.yaml up --build --wait
+docker compose -f compose.testing.yaml run --rm demo
+```
+
+Open **http://127.0.0.1:8086/docs** or **http://127.0.0.1:8086/review**.
+The demo prints verification IDs and a review link. Use the local fixture submitter
+token `local-testing-agent-token`; the separate reviewer token is
+`local-testing-reviewer-token`. These are public test credentials for loopback use.
+
+The worker now runs STEP → GLB → four-view capture itself. The HTTP demo detects a
+seeded geometry/visual defect, runs circuit/thermal and normal/fault/recovery checks,
+and verifies a correction against unchanged approved criteria.
+[Testing instructions and your-own-design workflow](docs/testing.md).
+
 ## What runs today
 
 | Engine | Supported checks |
@@ -17,7 +35,7 @@ and review. It runs independently of MetaForge and cloud account/billing service
 | OpenCASCADE through OCP | STEP solid validity, rigid assembly transforms, interference volume, clearance and envelope containment |
 | ngspice | Bounded resistive DC operating points, loss, KCL/power-balance qualification and sequential circuit-to-thermal evaluation |
 | OpenCV + Pillow | Controlled PNG regression and foreground mismatch in approved visible regions |
-| Playwright + Chromium + Three.js | Standalone four-view GLB capture with source/settings/browser hashes |
+| Playwright + Chromium + Three.js | Async four-view GLB/STEP capture with source/settings/browser hashes |
 | SQL worker / optional Temporal | Durable jobs, idempotency, renewable leases and fenced acceptance |
 
 Independent checks run concurrently. Native CAD/circuit work runs in separate Linux
@@ -125,7 +143,8 @@ packages; qualify the built image digest before promotion.
 ## Operations and extensions
 
 - Cursor events and webhook deliveries use a transactional SQL outbox. Destinations
-  are operator-configured per tenant; deliveries are signed, retried and deduplicated.
+  are operator-approved per tenant; reviewers register/disable them through the API.
+  Deliveries are signed, retried and deduplicated.
 - `GET /v1/usage` reports accepted completions and accepted-attempt wall time. No
   charging or production pricing policy is configured.
 - The scheduler enforces global/per-tenant running-job ceilings and dispatches the
@@ -167,13 +186,13 @@ controlled rendering, browser workbench checks and package/container builds.
 
 ## Release scope
 
-Version 0.2 expands the executable open core. The **full drafted product remains
+Version 0.3 expands the executable open core. The **full drafted product remains
 unfinished**; the [109-requirement register](docs/implementation-status.md) records
 implemented, partial and open obligations.
 
 Current exclusions include qualified KiCad ERC/DRC, semiconductor/transient circuit
 models, general wall-thickness/DFM, compiled firmware/HIL, calibrated physical
-inspection, semantic VLM review, automatic capture scheduling, cross-revision evidence
+inspection, semantic VLM review, cross-revision evidence
 cache reuse and production qualification for 100 organizations. EVT/DVT/PVT requests
 retain an explicit evidence gap. A named digital-profile pass is not certification
 or manufacturing approval.

@@ -101,6 +101,10 @@ def cad(task, root):
     result["distance_mm"] = distance.Value()
     a, b = distance.PointOnShape1(1), distance.PointOnShape2(1)
     result["closest_points_mm"] = [(a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z())]
+    if task.get("export_glb"):
+        from metaforge_verification.meshing import export_glb
+
+        result["tessellation"] = export_glb(shapes, components, root / "derived.glb")
     return result
 
 
@@ -210,19 +214,30 @@ def circuit(task, root):
 def main():
     # Native parser/solver limits apply before importing OCP or parsing supplied files.
     resource.setrlimit(resource.RLIMIT_CPU, (30, 30))
-    resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3, 3 * 1024**3))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (2 * 1024**2, 2 * 1024**2))
-    resource.setrlimit(resource.RLIMIT_NOFILE, (128, 128))
     root = Path(sys.argv[1])
     try:
-        from metaforge_verification.process_security import deny_network
-
-        deny_network()
         task = json.loads((root / "task.json").read_text())
+        if task["engine"] == "render":
+            # Chromium reserves a large virtual address space. Container/cgroup
+            # memory limits bound physical use; local process mode is opt-in.
+            resource.setrlimit(resource.RLIMIT_AS, (16 * 1024**4, 16 * 1024**4))
+            resource.setrlimit(resource.RLIMIT_NOFILE, (512, 512))
+        else:
+            resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3, 3 * 1024**3))
+            resource.setrlimit(resource.RLIMIT_NOFILE, (128, 128))
+            from metaforge_verification.process_security import deny_network
+
+            deny_network()
+        output_limit = (12 if task.get("export_glb") else 2) * 1024**2
+        resource.setrlimit(resource.RLIMIT_FSIZE, (output_limit, output_limit))
         if task["engine"] == "cad":
             result = cad(task, root)
         elif task["engine"] == "circuit":
             result = circuit(task, root)
+        elif task["engine"] == "render":
+            from metaforge_verification.render_worker import render
+
+            result = render(task, root)
         else:
             raise ValueError("Unsupported bundled engine")
     except ImportError:

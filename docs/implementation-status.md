@@ -38,8 +38,8 @@ Implemented means the named bounded capability has code and a corresponding test
 | FR-BEH-002 | Implemented | Model-only evidence labels retained in reports. |
 | FR-FW-001 | Open | Not delivered; retain as an explicit release obligation. |
 | FR-FW-002 | Open | Not delivered; retain as an explicit release obligation. |
-| FR-SCN-001 | Partial | Normal/fault/recovery events and thermal-bound analysis; required scenario-family matrix remains. |
-| FR-SCN-002 | Partial | Requirement-linked scenario count; full scenario/configuration denominator remains. |
+| FR-SCN-001 | Partial | Integrated profile enforces three scenario families and thermal bounds; broader product fixtures remain. |
+| FR-SCN-002 | Partial | Requirement/scenario/family matrix and mandatory-family gaps; broader configuration products remain. |
 | FR-SCN-003 | Partial | Missing models block checks; broader model mapping qualification remains. |
 | FR-SCN-004 | Open | Not delivered; retain as an explicit release obligation. |
 | FR-SCN-005 | Open | Not delivered; retain as an explicit release obligation. |
@@ -64,7 +64,7 @@ Implemented means the named bounded capability has code and a corresponding test
 | FR-UI-001 | Partial | Review workbench shows causes, measurements, assumptions and locations as evidence JSON; richer annotation views remain. |
 | FR-UI-002 | Open | Not delivered; retain as an explicit release obligation. |
 | FR-API-001 | Implemented | Versioned OpenAPI, async submission, capabilities, status, cancellation and reports. |
-| FR-API-002 | Partial | Idempotency, cursor events and signed retryable operator-configured webhooks; tenant endpoint registration remains. |
+| FR-API-002 | Partial | Idempotency, cursor events, signed retries and reviewer-managed approved endpoint registration/disable; broader self-service destinations remain. |
 | FR-EX-001 | Partial | SQL jobs, event outbox, fencing and optional Temporal; durable per-check DAG remains. |
 | FR-EX-002 | Partial | Independent checks overlap and circuit/thermal uses a shared dependency barrier; durable multi-stage DAG remains. |
 | FR-EX-003 | Partial | Global/tenant job ceilings and native resource limits; aggregate CPU/memory/spend reservations remain. |
@@ -87,9 +87,9 @@ Implemented means the named bounded capability has code and a corresponding test
 | NFR-012 | Partial | Legacy idempotency normalization and additive tables; deployment migration/replay policy remains. |
 | NFR-013 | Partial | Workbench preserves gaps/fidelity; integrated simplified view remains. |
 | NFR-014 | Open | Not delivered; retain as an explicit release obligation. |
-| FR-VIS-001 | Partial | Revision, PNG and context binding; automatic capture integration/attestation remains. |
+| FR-VIS-001 | Partial | Async service capture binds source/revision/settings/assets; broader origin/physical attestation remains. |
 | FR-VIS-002 | Partial | Managed baselines freeze references independently of candidates; external authority qualification remains. |
-| FR-VIS-003 | Partial | Standalone four-view capture and occlusion/out-of-frame checks; automatic visibility qualification remains. |
+| FR-VIS-003 | Partial | Automatic source-bound four-view capture with nonempty frames; semantic feature visibility qualification remains. |
 | FR-VIS-004 | Partial | Measured pixel/mask results separate from human reviews; no VLM/aesthetic assertions. |
 | FR-VIS-005 | Partial | Approved-region foreground mismatch with region/component details; representative defect benchmark remains. |
 | FR-VIS-006 | Partial | Visual findings cannot override CAD failures; general CAD/render semantic mapping remains. |
@@ -97,12 +97,12 @@ Implemented means the named bounded capability has code and a corresponding test
 | FR-VIS-008 | Partial | Controlled context identity and stale-render rejection; broader registration and lighting normalization remain. |
 | FR-VIS-009 | Open | Not delivered; retain as an explicit release obligation. |
 | FR-VIS-010 | Open | Not delivered; retain as an explicit release obligation. |
-| FR-VIS-011 | Partial | Evidence regions/component references retained and displayed; overlay annotations remain. |
+| FR-VIS-011 | Partial | Authenticated previews and rendered-difference overlays; broader semantic annotations remain. |
 | FR-SEC-001 | Open | Not delivered; retain as an explicit release obligation. |
 | FR-VIS-012 | Partial | Reviewer-managed references/regions; authority classes and intent decomposition remain. |
 | FR-VIS-013 | Partial | Approved-region mask conformity only; semantic checklist/shape interpretation remains. |
 | FR-VIS-014 | Partial | Revision finding comparison and changed-criteria disclosure; authorized feature-change workflow remains. |
-| FR-VIS-015 | Partial | Revision/hash binding; authoritative CAD-to-preview component correspondence remains. |
+| FR-VIS-015 | Partial | Service tessellation preserves source STEP hashes, transforms, component names and mm-to-m conversion; broader format mapping remains. |
 | FR-VIS-016 | Partial | Independent append-only reviewer decisions; subjective mandatory review-policy gating remains. |
 | FR-VIS-017 | Partial | Criteria, regions, component IDs, evidence method and review labels; richer source-view mapping remains. |
 | FR-CICD-001 | Open | Not delivered; retain as an explicit release obligation. |

@@ -74,9 +74,13 @@ container correction loop; no production sandbox certification is implied.
   revisions cannot produce a supported feature pass. These are not semantic identity,
   dimension, material or aesthetic measurements.
 
-The standalone Playwright/Three.js capture CLI generates four views and a manifest.
-Automatic service scheduling of that CLI and CAD-to-preview semantic correspondence
-remain open. No render is silently represented as authoritative B-rep measurement.
+The worker now schedules Playwright/Three.js capture through an asynchronous render
+API or an engineering render-regression check. For CAD sources, the service exports
+named-component GLB from the exact validated/transformed STEP solids. Tessellation
+parameters, mm-to-m conversion, source hashes, actual tool versions and generated
+asset digests are retained. Four-view manifests also bind the viewer, capture script
+and bundled Three.js/loader assets. No preview replaces authoritative B-rep measures.
+Semantic visibility of every feature and broader CAD formats still require qualification.
 
 ## Authority and immutable inputs
 

@@ -4,6 +4,7 @@ Process/resource isolation is not a network/filesystem security sandbox. Deploy 
 worker with a read-only image, restricted mounts, no credentials and denied egress.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -77,6 +78,7 @@ def container_command(directory):
 
 
 def engineering_task(task, blobs=None, timeout=45, cancelled=None):
+    started_at = time.time()
     if sys.platform != "linux":
         raise CheckUnavailable("Engineering subprocess adapter requires Linux resource limits")
     with tempfile.TemporaryDirectory(prefix="verification-engine-") as directory:
@@ -84,7 +86,8 @@ def engineering_task(task, blobs=None, timeout=45, cancelled=None):
         for index, data in enumerate(blobs or []):
             if len(data) > 10 * 1024 * 1024:
                 raise InvalidEvidence("Engineering artifact exceeds 10 MiB")
-            (root / f"input-{index}.step").write_bytes(data)
+            suffix = "glb" if task.get("engine") == "render" else "step"
+            (root / f"input-{index}.{suffix}").write_bytes(data)
         (root / "task.json").write_text(json.dumps(task, allow_nan=False))
         # Explicit child environment: customer tokens/cloud credentials are not inherited.
         env = {
@@ -101,7 +104,25 @@ def engineering_task(task, blobs=None, timeout=45, cancelled=None):
             if not Path(executable).is_absolute():
                 raise CheckUnavailable("Configured ngspice executable must be an absolute path")
             env["VERIFICATION_NGSPICE_EXECUTABLE"] = executable
+        for name in (
+            "VERIFICATION_RENDER_ROOT",
+            "VERIFICATION_CHROMIUM_EXECUTABLE",
+            "VERIFICATION_NODE_EXECUTABLE",
+            "PLAYWRIGHT_BROWSERS_PATH",
+        ):
+            if os.getenv(name):
+                env[name] = os.environ[name]
+        if task.get("engine") == "render" and "VERIFICATION_NODE_EXECUTABLE" not in env:
+            node = shutil.which("node")
+            if node:
+                env["VERIFICATION_NODE_EXECUTABLE"] = node
         mode = os.getenv("VERIFICATION_ENGINE_EXECUTOR", "process")
+        if (
+            task.get("engine") == "render"
+            and mode != "docker"
+            and os.getenv("VERIFICATION_RENDER_ALLOW_PROCESS") != "true"
+        ):
+            raise CheckUnavailable("Renderer requires Docker or explicit local process opt-in")
         command = [sys.executable, "-m", "metaforge_verification.engineering_worker", directory]
         cleanup = None
         if mode == "docker":
@@ -169,6 +190,27 @@ def engineering_task(task, blobs=None, timeout=45, cancelled=None):
             raise CheckUnavailable(result["unavailable"])
         if result.get("error"):
             raise InvalidEvidence(result["error"])
+        if task.get("export_glb") and (root / "derived.glb").is_file():
+            result["_glb_bytes"] = (root / "derived.glb").read_bytes()
+            if len(result["_glb_bytes"]) > 10 * 1024**2:
+                raise InvalidEvidence("Derived GLB exceeds supported size")
+        if task.get("engine") == "render":
+            manifest = result.get("manifest", {})
+            if manifest.get("model_sha256") != hashlib.sha256((blobs or [b""])[0]).hexdigest():
+                raise InvalidEvidence("Capture source digest mismatch")
+            by_view = {v["view"]: v for v in manifest.get("views", [])}
+            if set(by_view) != {"front", "side", "top", "iso"} or len(manifest["views"]) != 4:
+                raise InvalidEvidence("Incomplete or duplicated capture views")
+            pngs = {}
+            for view, item in by_view.items():
+                path = root / "capture" / (view + ".png")
+                if not path.is_file() or path.stat().st_size > 2 * 1024**2:
+                    raise InvalidEvidence("Capture PNG is absent or excessive")
+                data = path.read_bytes()
+                if hashlib.sha256(data).hexdigest() != item["sha256"]:
+                    raise InvalidEvidence("Capture PNG digest mismatch")
+                pngs[view] = data
+            result["_render_pngs"] = pngs
         result["executor"] = {
             "backend": mode,
             "image": os.getenv("VERIFICATION_ENGINE_IMAGE") if mode == "docker" else None,
@@ -176,5 +218,7 @@ def engineering_task(task, blobs=None, timeout=45, cancelled=None):
             if mode == "docker"
             else "worker host",
             "network": "denied",
+            "started_at_unix": started_at,
+            "finished_at_unix": time.time(),
         }
         return result

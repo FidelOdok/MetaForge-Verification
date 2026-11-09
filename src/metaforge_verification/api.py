@@ -103,7 +103,7 @@ def create_app(settings=None, authenticator=None):
             media_type="text/html",
             headers={
                 "Content-Security-Policy": "default-src 'none'; script-src 'self'; "
-                "style-src 'self'; connect-src 'self'; "
+                "style-src 'self'; connect-src 'self'; img-src blob:; "
                 "form-action 'none'; base-uri 'none'; frame-ancestors 'none'",
                 "Cache-Control": "no-store",
                 "Referrer-Policy": "no-referrer",
@@ -204,7 +204,18 @@ def create_app(settings=None, authenticator=None):
             "limitations": LIMITATIONS,
         }
 
-    @app.post("/v1/artifacts", status_code=201)
+    @app.post(
+        "/v1/artifacts",
+        status_code=201,
+        openapi_extra={
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+                },
+            }
+        },
+    )
     async def upload(request: Request, caller: Caller):
         if not caller.permissions & {"submit", "review"}:
             raise HTTPException(403, "Upload permission required")

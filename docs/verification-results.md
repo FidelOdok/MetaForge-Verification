@@ -1,10 +1,10 @@
-# Executed verification results — 0.2.0 candidate
+# Executed verification results — 0.3.0 candidate
 
-8 November 2026. These results qualify the stated synthetic cases only.
+9 November 2026. These results qualify the stated synthetic cases only.
 
 | Check | Observed result |
 | --- | --- |
-| Python suite with engineering extras | 58 passed |
+| Python suite with engineering extras | 66 passed |
 | Ruff lint / formatting | Passed |
 | Actual HTTP API + separate worker | Durable submission → report passed |
 | Analytical correction demonstration | Failing revision → corrected profile pass |
@@ -18,6 +18,9 @@
 | Usage/outbox | Duplicate acceptance yields one ledger record; signed delivery and retry/backoff fixtures passed |
 | Review workbench | Real Chromium 153.0.8010.0 report/review interaction passed; engineering failure retained |
 | 100-tenant HTTP smoke | 100 completions; 100 denied cross-tenant reads; 100 accepted usage records |
+| Integrated HTTP service | STEP → named-component GLB → four-view capture → approval → failing revision → corrected 13-requirement pass |
+| Integrated review | Four authenticated previews, difference annotations and CAD failures displayed in Chromium |
+| Scenario gate | Normal/fault/recovery required for the integrated profile; missing families block completion |
 | Package | Wheel and source distribution built; workbench assets included |
 
 The [100-tenant result](qualification/100-tenant-smoke.json) contains workload,

@@ -63,6 +63,7 @@ class Settings:
             url = urlsplit(destination.get("url", ""))
             if (
                 url.scheme != "https"
+                or len(destination.get("url", "")) > 2048
                 or not url.hostname
                 or url.username
                 or url.password

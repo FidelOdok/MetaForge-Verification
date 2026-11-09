@@ -11,10 +11,12 @@ from metaforge_verification.artifacts import artifact_store
 from metaforge_verification.auth import Principal
 from metaforge_verification.contracts import (
     PhysicalEvidenceCreate,
+    RenderCreate,
     RequirementSetCreate,
     ScenarioSuiteCreate,
     UploadCreate,
     VerificationRequest,
+    WebhookEndpointCreate,
 )
 from metaforge_verification.engine import plan, references
 from metaforge_verification.store import Conflict
@@ -50,6 +52,7 @@ def resolve(store, checks, body, caller):
         resolved_plan = plan(request, checks)
         if (
             resolved_plan["missing_profile_rules"]
+            or resolved_plan["missing_scenario_families"]
             or resolved_plan["conflicting_requirements"]
             or any(not c["available"] or c["missing_inputs"] for c in resolved_plan["checks"])
         ):
@@ -85,6 +88,79 @@ def add_routes(app, store, settings, principal, submit):
             )
         except Conflict as exc:
             raise HTTPException(409, str(exc)) from None
+
+    @app.post("/v1/webhook-endpoints", status_code=201)
+    def register_webhook(body: WebhookEndpointCreate, caller: Caller):
+        require(caller, "review")
+        try:
+            return store.register_webhook_endpoint(caller.tenant_id, caller.actor_id)
+        except Conflict as exc:
+            raise HTTPException(409, str(exc)) from None
+
+    @app.get("/v1/webhook-endpoints")
+    def list_webhooks(caller: Caller):
+        row = store.get_webhook_endpoint(caller.tenant_id)
+        return {
+            "items": [row] if row else [],
+            "policy": "Reviewer-managed approved destination; no signing secret returned.",
+        }
+
+    @app.post("/v1/webhook-endpoints/{endpoint_id}/disable")
+    def disable_webhook(endpoint_id: str, caller: Caller):
+        require(caller, "review")
+        row = store.get_webhook_endpoint(caller.tenant_id)
+        if row is None or row["id"] != endpoint_id:
+            raise HTTPException(404, "Webhook endpoint not found")
+        return store.disable_webhook_endpoint(caller.tenant_id, endpoint_id, caller.actor_id)
+
+    @app.post("/v1/renders", status_code=202)
+    def render(
+        body: RenderCreate,
+        caller: Caller,
+        idempotency_key: Annotated[str, Header(min_length=1, max_length=200)],
+    ):
+        require(caller, "submit")
+        request = VerificationRequest(
+            profile_id="artifact-render-v1",
+            approval_ref="service:controlled-artifact-capture",
+            twin={"twin_id": body.twin_id, "revision_id": body.revision_id},
+            cad=body.cad,
+            capture=body.source,
+            requirements=[
+                {
+                    "id": "CAPTURE",
+                    "description": "Four qualified source-bound views",
+                    "rule_id": "visual.render_capture",
+                    "required_fidelity": "F1",
+                    "criterion": {
+                        "operator": ">=",
+                        "threshold": {"value": 4, "unit": "dimensionless"},
+                    },
+                }
+            ],
+        )
+        for reference in references(request):
+            artifact(caller, reference)
+        return submit(request, caller, idempotency_key)
+
+    @app.get("/v1/renders/{job_id}")
+    def render_result(job_id: str, caller: Caller):
+        row = job(caller, job_id)
+        if row["request"]["profile_id"] != "artifact-render-v1":
+            raise HTTPException(404, "Render job not found")
+        result = {
+            "verification_id": row["id"],
+            "execution_state": row["state"],
+            "error": row["error"],
+            "capture": None,
+        }
+        if row["report"]:
+            result["gate_decision"] = row["report"]["gate_decision"]
+            for evidence in row["report"]["evidence"]:
+                if evidence["method"] == "visual.render_capture":
+                    result["capture"] = evidence["details"]
+            result["findings"] = row["report"]["findings"]
+        return result
 
     @app.post("/v1/requirement-sets", status_code=201)
     def register_requirements(body: RequirementSetCreate, caller: Caller):
@@ -169,7 +245,17 @@ def add_routes(app, store, settings, principal, submit):
             raise HTTPException(409, "Upload expired")
         return row
 
-    @app.put("/v1/artifact-uploads/{upload_id}/content")
+    @app.put(
+        "/v1/artifact-uploads/{upload_id}/content",
+        openapi_extra={
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+                },
+            }
+        },
+    )
     async def stage_upload(upload_id: str, request: Request, caller: Caller):
         require(caller, "submit")
         row = upload_session(caller, upload_id)
