@@ -26,7 +26,7 @@ owns and the gates a client still supplies.
 | Field | Meaning |
 | --- | --- |
 | `revision` | A `ConceptRevision`: declared facts about the design's intent, parts and context. Immutable input. |
-| `supplied` | Findings from a gate the client still owns (`config_valid`). Folded into the verdict unchanged. A client may not supply a finding for a gate the service owns. |
+| `supplied` | Findings from a gate the client still owns (`config_valid`). Folded into the verdict unchanged. A client may not supply a finding for a gate the service owns. To say a config is valid, supply a `pass` finding; the service never infers it. |
 | `scope` | Refs to re-check. A ref that names nothing in the revision is a 422 with `bad_refs`. |
 | `gates` | Which gates to run. Default: all. |
 
@@ -70,7 +70,7 @@ otherwise any unresolved required finding makes it `incomplete`.
 
 The verdict says who acts next. First match wins:
 
-1. `invalid`: a blocking `config_valid` finding is unresolved.
+1. `invalid`: the client supplied a blocking `config_valid` failure.
 2. `needs_agent`: a blocking finding the agent can clear.
 3. `blocked_external`: a blocking finding that needs something outside.
 4. `needs_person`: a blocking finding only a person can clear.
@@ -83,7 +83,8 @@ the verdict reads `needs_person`.
 
 `level` is `V0` (captured), `V1` (consistent) or `V2` (screened). It never exceeds V2,
 whatever is submitted. It is `V0` while a blocking `config_valid` finding is
-unresolved, `V2` once a screening result is stored, and `V1` otherwise.
+unresolved (including one that was never supplied), `V2` once a screening result is
+stored, and `V1` otherwise.
 
 ## The `imagine-v1` rules
 
@@ -134,7 +135,11 @@ every assumption merely accepted and still fail the Define exit. The report now 
 - `screening.stored` has resolver `person` because only a client's own engine produces a
   screening result today. It becomes `agent` once the screening rules run here.
 - The config rules are not here yet. A client supplies `config_valid` findings, and the
-  service never marks that gate `pass` by itself.
+  service never marks that gate `pass` by itself. A default report leaves the gate out when
+  nothing was supplied, because the service evaluated nothing. Asking for it explicitly with
+  nothing supplied, or supplying only warnings, gives the gate `incomplete` and a blocking
+  `config.not_supplied` finding (`not_assessed`, resolver `external`), so the verdict reads
+  `blocked_external` and not `invalid`: an unchecked config is not a known-bad one.
 - Rules are code behind one protocol. Versioned rule data with a closed criterion union
   is the next step.
 - Nothing here is measured, simulated or certified, and nothing is above V2.

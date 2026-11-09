@@ -80,7 +80,7 @@ def is_unresolved_blocker(f: ValidationFinding) -> bool:
 def compute_verdict(findings: list[ValidationFinding]) -> Verdict:
     """Who acts next. First match wins, so the agent is never handed a blocker it cannot clear."""
     blockers = [f for f in findings if is_unresolved_blocker(f)]
-    if any(f.gate == "config_valid" for f in blockers):
+    if any(f.gate == "config_valid" and f.status == Status.FAIL for f in blockers):
         return "invalid"
     for resolver, verdict in (
         ("agent", "needs_agent"),
@@ -140,9 +140,27 @@ def _scoped(findings: list[ValidationFinding], scope: list[Ref]) -> list[Validat
     ]
 
 
+def config_not_supplied(rev: ConceptRevision) -> ValidationFinding:
+    """No client said the config is valid, so the service does not assume it is."""
+    return ValidationFinding(
+        id="f_config_not_supplied",
+        check_id="config.not_supplied",
+        rule_version=RULE_VERSION,
+        gate="config_valid",
+        severity="blocking",
+        status=Status.NOT_ASSESSED,
+        target=Ref(kind="studio", id="config", revision=rev.number),
+        message="No config_valid result was supplied; the config is not assumed valid.",
+        resolver="external",
+    )
+
+
 def validate(request: ValidationRequest) -> ValidationReport:
     rev = request.revision
-    gates = [g for g in ALL_GATES if g in (request.gates or ALL_GATES)]
+    # The client owns config_valid. Without a supplied result the gate is left
+    # out of a default report: the service evaluated nothing, so it says nothing.
+    wanted = request.gates or [g for g in ALL_GATES if g != "config_valid" or request.supplied]
+    gates = [g for g in ALL_GATES if g in wanted]
     if request.scope:
         known = known_refs(rev)
         bad = [r for r in request.scope if (r.kind, r.id) not in known]
@@ -150,6 +168,11 @@ def validate(request: ValidationRequest) -> ValidationReport:
             raise UnknownRefs(bad)
 
     findings: list[ValidationFinding] = [f for f in request.supplied if f.gate in gates]
+    if "config_valid" in gates:
+        said_valid = any(f.status == Status.PASS for f in findings)
+        said_invalid = any(is_unresolved_blocker(f) for f in findings)
+        if not said_valid and not said_invalid:
+            findings.append(config_not_supplied(rev))
     for rule in RULES:
         if rule.gate in gates:
             findings.extend(rule.evaluate(rev))
