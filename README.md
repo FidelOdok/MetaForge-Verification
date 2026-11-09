@@ -21,6 +21,9 @@ billing and provisioning belong in cloud extensions, not this package.
   startup unless local single-tenant mode is explicitly selected.
 - Trusted check-plugin and authentication extension seams.
 - Optional Temporal workflow/dispatcher using the same fenced execution path.
+- Readiness profiles (`imagine-v1`): a synchronous, pure `POST /v1/validations` whose
+  findings say who can clear them (agent, person or external), with a computed verdict
+  and a V2 level ceiling. See `docs/readiness-profiles.md`.
 
 This is a runnable foundation, not the complete smart-device MVP or a qualified
 100-customer production deployment. No physical/certification claims are made.

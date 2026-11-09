@@ -46,6 +46,16 @@ inconclusive. Numeric violation -> fail. Required failure dominates gate; otherw
 missing required evidence -> incomplete. Optional failures remain visible. A pass
 belongs only to this named analytical profile and its submitted criteria.
 
+## Readiness profiles
+
+`POST /v1/validations` evaluates a readiness profile (`docs/readiness-profiles.md`)
+over a submitted revision. It is synchronous and pure: no job, no storage, no clock, so
+the same input gives the same report. It shares the contract base and fingerprinting
+with the lamp profile but has its own schema (2.0) in `metaforge_verification.profile`,
+so the lamp contracts and their published OpenAPI schemas are unchanged. The core
+judges declared facts submitted in a neutral `ConceptRevision`; it never reads a
+client's own config format.
+
 ## Adapter reuse plan
 
 MetaForge already has a standalone render.model_views tool (Playwright/Chromium/Three.js),

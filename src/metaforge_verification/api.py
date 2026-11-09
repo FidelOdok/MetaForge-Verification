@@ -11,6 +11,13 @@ from metaforge_verification.auth import Principal, TokenAuthenticator
 from metaforge_verification.config import Settings
 from metaforge_verification.contracts import Report, VerificationRequest
 from metaforge_verification.engine import LIMITATIONS, plan, registry
+from metaforge_verification.profile import evaluate as profile_eval
+from metaforge_verification.profile.contracts import (
+    OWNED_GATES,
+    ValidationReport,
+    ValidationRequest,
+)
+from metaforge_verification.profile.rules import PROFILE_ID, PROFILE_VERSION
 from metaforge_verification.store import Conflict, LocalArtifactStore, QuotaExceeded, Store
 
 
@@ -101,6 +108,14 @@ def create_app(settings=None, authenticator=None):
         return {
             "schema_version": "1.0",
             "profiles": ["smart-lamp-analytical-v1"],
+            "validation_profiles": [
+                {
+                    "profile_id": PROFILE_ID,
+                    "version": PROFILE_VERSION,
+                    "gates": list(OWNED_GATES),
+                    "client_gates": ["config_valid"],
+                }
+            ],
             "checks": [
                 {"rule_id": c.rule_id, "module": c.module, "fidelity": c.fidelity}
                 for c in checks.values()
@@ -127,6 +142,25 @@ def create_app(settings=None, authenticator=None):
             media_type="application/octet-stream",
             headers={"Cache-Control": "private, no-store"},
         )
+
+    @app.post("/v1/validations", response_model=ValidationReport)
+    def validations(body: ValidationRequest, caller: Caller):
+        """Synchronous dry run of a readiness profile over a submitted revision.
+
+        Pure and read-only: nothing is stored, no job is queued, and the same
+        input gives the same report. Findings say who can clear them and the
+        verdict says who acts next; a client never computes its own.
+        """
+        try:
+            return profile_eval.validate(body)
+        except profile_eval.UnknownRefs as exc:
+            raise HTTPException(
+                422,
+                {
+                    "message": str(exc),
+                    "bad_refs": [r.model_dump(mode="json") for r in exc.bad],
+                },
+            ) from None
 
     @app.post("/v1/verification-plans")
     def verification_plan(body: VerificationRequest, caller: Caller):
