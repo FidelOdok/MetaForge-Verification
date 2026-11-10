@@ -311,6 +311,16 @@
             "title": "Kind",
             "type": "string"
           },
+          "measured": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormMeasured"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "parts": {
             "items": {
               "$ref": "#/components/schemas/FormPart"
@@ -324,6 +334,94 @@
           "kind"
         ],
         "title": "FormFacts",
+        "type": "object"
+      },
+      "FormMeasured": {
+        "additionalProperties": false,
+        "description": "What the client measured from the form's drawn triangles.\n\nThese are estimates, at screening level: uniform density, overlapping parts counted twice,\noverhang counted on faces another part covers. The service judges balance and overlap and\nreports overhang without judging it, because the right limit depends on a process and an\norientation the profile does not have. A form with no flat base to stand on has no tip angle.",
+        "properties": {
+          "has_flat_base": {
+            "title": "Has Flat Base",
+            "type": "boolean"
+          },
+          "margin_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin Mm"
+          },
+          "overhang_share": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overhang Share"
+          },
+          "overlaps": {
+            "items": {
+              "$ref": "#/components/schemas/FormOverlap"
+            },
+            "maxItems": 100,
+            "title": "Overlaps",
+            "type": "array"
+          },
+          "tip_angle_deg": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": -90.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tip Angle Deg"
+          }
+        },
+        "required": [
+          "has_flat_base"
+        ],
+        "title": "FormMeasured",
+        "type": "object"
+      },
+      "FormOverlap": {
+        "additionalProperties": false,
+        "description": "Two component parts whose boxes overlap, and by how much.",
+        "properties": {
+          "a": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "A",
+            "type": "string"
+          },
+          "b": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "B",
+            "type": "string"
+          },
+          "volume_mm3": {
+            "minimum": 0.0,
+            "title": "Volume Mm3",
+            "type": "number"
+          }
+        },
+        "required": [
+          "a",
+          "b",
+          "volume_mm3"
+        ],
+        "title": "FormOverlap",
         "type": "object"
       },
       "FormPart": {

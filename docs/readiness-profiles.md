@@ -143,6 +143,14 @@ so they cannot change a verdict, a gate or a level:
 | --- | --- |
 | `form.enclosure_checks` | the form is authored, so the checks that need an enclosure (wall, draft, fit, moulding, cost) were not assessed; reads `not_assessed`, never `pass` |
 | `form.confidence_mix` | every part is a bought component, so nothing shapes the product's own form; fails with a fix that names what is needed and no value |
+| `form.measured` | the client did not measure the form, so balance, overhang and overlapping components were not assessed; reads `not_assessed`, with a fix that names a look at the revision, never `pass` |
+| `form.balance` | the angle the form tips over at, from the client's estimate of its centre of mass against its flat base: `pass` from 15 degrees, `fail` below that (a screening threshold, stated in the finding) or when the centre of mass is outside the base; `not_assessed` for a form with no flat base |
+| `form.component_overlap` | one `fail` per pair of component boxes that overlap, with the volume, or a single `pass` when none do |
+
+The measurements come from the client's own drawn triangles with uniform density and are estimates: the
+service judges balance and overlap, as advisory findings that cannot change a verdict, and does not judge
+overhang, because its limit depends on a process and an orientation the profile does not have. Wall
+thickness is not measured.
 
 The difference between the two gates is deliberate. A studio can pass the handover with
 every assumption merely accepted and still fail the Define exit. The report now says so.

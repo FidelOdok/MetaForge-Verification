@@ -192,6 +192,44 @@ class FormPart(Contract):
     body: bool = False
 
 
+class FormOverlap(Contract):
+    """Two component parts whose boxes overlap, and by how much."""
+
+    a: str = Field(pattern=ID)
+    b: str = Field(pattern=ID)
+    volume_mm3: float = Field(ge=0)
+
+
+class FormMeasured(Contract):
+    """What the client measured from the form's drawn triangles.
+
+    These are estimates, at screening level: uniform density, overlapping parts counted twice,
+    overhang counted on faces another part covers. The service judges balance and overlap and
+    reports overhang without judging it, because the right limit depends on a process and an
+    orientation the profile does not have. A form with no flat base to stand on has no tip angle.
+    """
+
+    #: The share of the surface that looks steeply downward and is not on the floor, 0 to 1.
+    overhang_share: float | None = Field(default=None, ge=0, le=1)
+    has_flat_base: bool
+    #: The angle the form tips over at, in degrees; negative when its centre of mass is already
+    #: outside the base. ``None`` when there is no flat base.
+    tip_angle_deg: float | None = Field(default=None, ge=-90, le=90)
+    #: How far inside the base the centre of mass is, in mm; negative when outside.
+    margin_mm: float | None = None
+    overlaps: list[FormOverlap] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def coherent(self):
+        if self.has_flat_base and (self.tip_angle_deg is None or self.margin_mm is None):
+            raise ValueError("a form with a flat base needs a tip angle and a margin")
+        if not self.has_flat_base and (
+            self.tip_angle_deg is not None or self.margin_mm is not None
+        ):
+            raise ValueError("a form with no flat base has no tip angle or margin")
+        return self
+
+
 class FormFacts(Contract):
     """The shape of the product, as the client declares it.
 
@@ -202,6 +240,9 @@ class FormFacts(Contract):
 
     kind: FormKind
     parts: list[FormPart] = Field(default_factory=list, max_length=24)
+    #: What the client measured, when it did. ``None`` means nobody measured it, which the
+    #: profile says; it is never read as a pass.
+    measured: FormMeasured | None = None
 
     @model_validator(mode="after")
     def coherent(self):
@@ -212,6 +253,13 @@ class FormFacts(Contract):
             raise ValueError("at most one form part may be the body")
         if self.kind == "authored" and not self.parts:
             raise ValueError("an authored form needs at least one part")
+        if self.measured is not None:
+            if self.kind != "authored":
+                raise ValueError("only an authored form carries measurements")
+            known = set(ids)
+            for o in self.measured.overlaps:
+                if o.a not in known or o.b not in known:
+                    raise ValueError("an overlap names a part the form does not have")
         return self
 
 
