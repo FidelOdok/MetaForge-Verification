@@ -39,6 +39,18 @@ A client's own readiness answers (`has_value`, `has_test` on a requirement) are
 optional. When one is not supplied the check reads `not_assessed`. The service does not
 guess.
 
+### The form
+
+A revision may carry `form`, the shape of the product as the client declares it:
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | `enclosure` (the client's single template) or `authored` (a form built from parts that carry geometry code). |
+| `parts` | For an authored form, each part's `id`, its `kind` (`generated`, `primitive` or `component`, which says how far to trust it as geometry) and whether it is the `body`. The code stays with the client. |
+
+The field is optional and additive. A revision without it, or with an `enclosure` form,
+produces the report it always did. The client sends it only for an authored form.
+
 ## The report
 
 Each `ValidationFinding` has:
@@ -123,6 +135,22 @@ programme view, where it is stricter on purpose.
 | `define.markets_chosen` | at least one market |
 | `define.requirement_values` | every requirement has a value (client's answer) |
 | `define.requirement_tests` | every requirement has a planned test (client's answer) |
+
+The form rules apply only when the client says the form is `authored`. Both are advisory,
+so they cannot change a verdict, a gate or a level:
+
+| check_id | Meaning |
+| --- | --- |
+| `form.enclosure_checks` | the form is authored, so the checks that need an enclosure (wall, draft, fit, moulding, cost) were not assessed; reads `not_assessed`, never `pass` |
+| `form.confidence_mix` | every part is a bought component, so nothing shapes the product's own form; fails with a fix that names what is needed and no value |
+| `form.measured` | the client did not measure the form, so balance, overhang and overlapping components were not assessed; reads `not_assessed`, with a fix that names a look at the revision, never `pass` |
+| `form.balance` | the angle the form tips over at, from the client's estimate of its centre of mass against its flat base: `pass` from 15 degrees, `fail` below that (a screening threshold, stated in the finding) or when the centre of mass is outside the base; `not_assessed` for a form with no flat base |
+| `form.component_overlap` | one `fail` per pair of component boxes that overlap, with the volume, or a single `pass` when none do |
+
+The measurements come from the client's own drawn triangles with uniform density and are estimates: the
+service judges balance and overlap, as advisory findings that cannot change a verdict, and does not judge
+overhang, because its limit depends on a process and an orientation the profile does not have. Wall
+thickness is not measured.
 
 The difference between the two gates is deliberate. A studio can pass the handover with
 every assumption merely accepted and still fail the Define exit. The report now says so.

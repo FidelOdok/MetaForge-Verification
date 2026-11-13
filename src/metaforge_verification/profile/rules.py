@@ -507,6 +507,178 @@ class DefineRequirementTests(_DefineSupplied):
     ok_text = "has a planned test"
 
 
+class _Form(Rule):
+    """Advisory findings about an authored form. They never block: they make visible what the
+    profile did not assess, and they apply only when the client says the form is authored."""
+
+    gate: ClassVar[Gate] = "handover"
+    severity: ClassVar[Severity] = "advisory"
+
+    @staticmethod
+    def authored(rev: ConceptRevision):
+        return rev.form if rev.form is not None and rev.form.kind == "authored" else None
+
+
+class FormEnclosureChecks(_Form):
+    check_id = "form.enclosure_checks"
+
+    def evaluate(self, rev):
+        if self.authored(rev) is None:
+            return []
+        return [
+            self.finding(
+                Status.NOT_ASSESSED,
+                _studio(rev, "form"),
+                "The form is authored, so the checks that need an enclosure (wall thickness, "
+                "draft, fit of the electronics, moulding and cost) were not assessed.",
+            )
+        ]
+
+
+class FormConfidenceMix(_Form):
+    check_id = "form.confidence_mix"
+
+    def evaluate(self, rev):
+        form = self.authored(rev)
+        if form is None or any(p.kind != "component" for p in form.parts):
+            return []
+        return [
+            self.finding(
+                Status.FAIL,
+                _studio(rev, "form"),
+                "Every part of the form is a bought component, so nothing in it shapes this "
+                "product's own form and the scene does not read as a finished design.",
+                fix=Fix(
+                    op="add",
+                    pointer="/form/parts",
+                    needs="a part whose geometry is generated or declared for this product",
+                ),
+            )
+        ]
+
+
+#: A form that tips over at less than this angle is easily knocked over. A screening threshold
+#: for a concept, not a standard: the number is stated in the finding so nobody mistakes it.
+TIP_SCREEN_DEG = 15.0
+
+
+class FormMeasuredNote(_Form):
+    check_id = "form.measured"
+
+    def evaluate(self, rev):
+        form = self.authored(rev)
+        if form is None or form.measured is not None:
+            return []
+        return [
+            self.finding(
+                Status.NOT_ASSESSED,
+                _studio(rev, "form"),
+                "The form was not measured: nobody has looked at this revision, so balance, "
+                "overhang and overlapping components were not assessed.",
+                fix=Fix(
+                    op="add",
+                    pointer="/form/measured",
+                    needs="a look at this revision, so the drawn form is measured",
+                ),
+            )
+        ]
+
+
+class FormBalance(_Form):
+    check_id = "form.balance"
+
+    def evaluate(self, rev):
+        form = self.authored(rev)
+        if form is None or form.measured is None:
+            return []
+        m = form.measured
+        target = _studio(rev, "form")
+        if not m.has_flat_base:
+            return [
+                self.finding(
+                    Status.NOT_ASSESSED,
+                    target,
+                    "The form has no flat base to stand on (it hangs, or rests on a point or an "
+                    "edge), so balance was not assessed.",
+                )
+            ]
+        angle, margin = m.tip_angle_deg, m.margin_mm
+        assert angle is not None and margin is not None
+        if margin < 0:
+            return [
+                self.finding(
+                    Status.FAIL,
+                    target,
+                    f"Would tip over: its centre of mass is {abs(margin):.1f} mm outside the "
+                    "base. Estimated from the drawn form, uniform density.",
+                    fix=Fix(
+                        op="set",
+                        pointer="/form/parts",
+                        needs="a wider or heavier base, or a lower centre of mass",
+                    ),
+                )
+            ]
+        if angle < TIP_SCREEN_DEG:
+            return [
+                self.finding(
+                    Status.FAIL,
+                    target,
+                    f"Tips over at only {angle:.0f} degrees, below the {TIP_SCREEN_DEG:.0f} "
+                    "degree screening threshold: a light knock could topple it. Estimated from "
+                    "the drawn form, uniform density.",
+                    fix=Fix(
+                        op="set",
+                        pointer="/form/parts",
+                        needs="a wider or heavier base, or a lower centre of mass",
+                    ),
+                )
+            ]
+        return [
+            self.finding(
+                Status.PASS,
+                target,
+                f"Tips over at {angle:.0f} degrees; its centre of mass is {margin:.1f} mm inside "
+                "the base. Estimated from the drawn form, uniform density.",
+            )
+        ]
+
+
+class FormComponentOverlap(_Form):
+    check_id = "form.component_overlap"
+
+    def evaluate(self, rev):
+        form = self.authored(rev)
+        if form is None or form.measured is None:
+            return []
+        pairs = form.measured.overlaps
+        if not pairs:
+            return [
+                self.finding(
+                    Status.PASS,
+                    _studio(rev, "form"),
+                    "No component boxes overlap.",
+                )
+            ]
+        out = []
+        for o in pairs:
+            out.append(
+                self.finding(
+                    Status.FAIL,
+                    Ref(kind="part", id=o.a, revision=rev.number),
+                    f"Components {o.a} and {o.b} overlap by {o.volume_mm3:g} mm3, which cannot "
+                    "be so in a real product.",
+                    suffix=f"{o.a}_{o.b}",
+                    evidence=[Ref(kind="part", id=o.b, revision=rev.number)],
+                    fix=Fix(
+                        op="set",
+                        pointer="/form/parts",
+                        needs=f"a position for {o.a} or {o.b} that does not overlap the other",
+                    ),
+                )
+            )
+        return out
+
+
 RULES: tuple[Rule, ...] = (
     LedgerReviewed(),
     AssumptionsSettled(),
@@ -525,6 +697,11 @@ RULES: tuple[Rule, ...] = (
     DefineMarketsChosen(),
     DefineRequirementValues(),
     DefineRequirementTests(),
+    FormEnclosureChecks(),
+    FormConfidenceMix(),
+    FormMeasuredNote(),
+    FormBalance(),
+    FormComponentOverlap(),
 )
 
 LIMITATIONS = [
@@ -534,4 +711,10 @@ LIMITATIONS = [
     "Whether a requirement has a value or a planned test is the client's answer; "
     "when it is not supplied the check reads not_assessed.",
     "A part's source is checked for presence, not that it was read or says what is claimed.",
+    "A form the client calls authored is not assessed against enclosure checks; the profile "
+    "says so and does not guess.",
+    "Form measurements are the client's estimates from the drawn triangles (uniform density, "
+    "overlapping parts counted twice). Balance and overlap are judged, as advisory findings "
+    "only; overhang is reported by the client and not judged, because its limit depends on a "
+    "process and an orientation the profile does not have. Wall thickness is not measured.",
 ]

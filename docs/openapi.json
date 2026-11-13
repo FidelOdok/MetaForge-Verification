@@ -76,6 +76,16 @@
             "title": "Concept Mesh",
             "type": "boolean"
           },
+          "form": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormFacts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "functions": {
             "items": {
               "$ref": "#/components/schemas/Function"
@@ -287,6 +297,162 @@
           "needs"
         ],
         "title": "Fix",
+        "type": "object"
+      },
+      "FormFacts": {
+        "additionalProperties": false,
+        "description": "The shape of the product, as the client declares it.\n\n``enclosure`` is the engine's one template. ``authored`` is a form whose parts carry\ngeometry code the client runs in a sandbox. Optional on the revision: a client that does\nnot send it, or sends ``enclosure``, gets the report it always got.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "enclosure",
+              "authored"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "measured": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormMeasured"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/FormPart"
+            },
+            "maxItems": 24,
+            "title": "Parts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "FormFacts",
+        "type": "object"
+      },
+      "FormMeasured": {
+        "additionalProperties": false,
+        "description": "What the client measured from the form's drawn triangles.\n\nThese are estimates, at screening level: uniform density, overlapping parts counted twice,\noverhang counted on faces another part covers. The service judges balance and overlap and\nreports overhang without judging it, because the right limit depends on a process and an\norientation the profile does not have. A form with no flat base to stand on has no tip angle.",
+        "properties": {
+          "has_flat_base": {
+            "title": "Has Flat Base",
+            "type": "boolean"
+          },
+          "margin_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin Mm"
+          },
+          "overhang_share": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overhang Share"
+          },
+          "overlaps": {
+            "items": {
+              "$ref": "#/components/schemas/FormOverlap"
+            },
+            "maxItems": 100,
+            "title": "Overlaps",
+            "type": "array"
+          },
+          "tip_angle_deg": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": -90.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tip Angle Deg"
+          }
+        },
+        "required": [
+          "has_flat_base"
+        ],
+        "title": "FormMeasured",
+        "type": "object"
+      },
+      "FormOverlap": {
+        "additionalProperties": false,
+        "description": "Two component parts whose boxes overlap, and by how much.",
+        "properties": {
+          "a": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "A",
+            "type": "string"
+          },
+          "b": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "B",
+            "type": "string"
+          },
+          "volume_mm3": {
+            "minimum": 0.0,
+            "title": "Volume Mm3",
+            "type": "number"
+          }
+        },
+        "required": [
+          "a",
+          "b",
+          "volume_mm3"
+        ],
+        "title": "FormOverlap",
+        "type": "object"
+      },
+      "FormPart": {
+        "additionalProperties": false,
+        "description": "One part of an authored form. Its code stays with the client; only what the profile\nreads is sent: what it is called and how much it can be trusted as geometry.",
+        "properties": {
+          "body": {
+            "default": false,
+            "title": "Body",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,100}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "generated",
+              "primitive",
+              "component"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "title": "FormPart",
         "type": "object"
       },
       "Function": {
